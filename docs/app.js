@@ -212,6 +212,67 @@
     if (event.target.matches && event.target.matches('.sleeve img, #recipe-body img')) event.target.remove();
   }, true);
 
+  // ---------- Album blurbs ----------
+  // The opening lines of the album's English Wikipedia article, shown on the
+  // party page. Only used when the article is clearly this album by this artist.
+
+  const BLURBS_KEY = 'house-music-blurbs-v1';
+  let blurbs = {};
+  try { blurbs = JSON.parse(localStorage.getItem(BLURBS_KEY)) || {}; } catch { /* no cache */ }
+
+  const blurbHtml = (b) => `<p>${esc(b.text)}</p>
+    <p class="source">From <a href="${esc(b.url)}" target="_blank" rel="noopener">Wikipedia</a>, CC BY-SA.</p>`;
+
+  function blurbBox(p) {
+    const b = blurbs[coverKey(p)];
+    return `<div class="blurb" data-blurb="${esc(coverKey(p))}" data-artist="${esc(p.artist)}" data-album="${esc(p.album)}"${b ? '' : ' hidden'}>${b ? blurbHtml(b) : ''}</div>`;
+  }
+
+  // Article titles look like "Timeless (Goldie album)"; the short description like "1995 studio album by Goldie".
+  function pickBlurb(pages, artist, album) {
+    const a = norm(artist), t = norm(album);
+    const hit = pages.sort((x, y) => x.index - y.index).find((pg) => {
+      const about = norm(pg.description || '');
+      return norm(pg.title.replace(/\s*\([^)]*\)$/, '')) === t && pg.extract
+        && /\b(album|ep|mixtape|soundtrack)\b/.test(about) && ` ${about} `.includes(` ${a} `);
+    });
+    if (!hit) return '';
+    // Keep it to a short paragraph, ending on a full sentence where possible.
+    let text = hit.extract.replace(/\s+/g, ' ').trim();
+    if (text.length > 420) {
+      const cut = text.slice(0, 420);
+      text = cut.includes('. ') ? cut.slice(0, cut.lastIndexOf('. ') + 1) : `${cut.slice(0, cut.lastIndexOf(' '))}…`;
+    }
+    return { text, url: hit.fullurl };
+  }
+
+  async function loadBlurb() {
+    const el = document.querySelector('.blurb[data-blurb]');
+    if (!el) return;
+    const { blurb: key, artist, album } = el.dataset;
+    if (key in blurbs || !norm(artist) || !norm(album) || lookups.has(`blurb:${key}`)) return;
+    lookups.add(`blurb:${key}`);
+    try {
+      const query = new URLSearchParams({
+        action: 'query', format: 'json', origin: '*',
+        generator: 'search', gsrsearch: `${album} ${artist} album`, gsrlimit: '5',
+        prop: 'extracts|description|info', exintro: '1', explaintext: '1', exsentences: '3', exlimit: '5', inprop: 'url',
+      });
+      const res = await fetch(`https://en.wikipedia.org/w/api.php?${query}`);
+      if (!res.ok) return; // try again on a later visit
+      const data = await res.json();
+      blurbs[key] = pickBlurb(Object.values((data.query && data.query.pages) || {}), artist, album);
+      try { localStorage.setItem(BLURBS_KEY, JSON.stringify(blurbs)); } catch { /* fine */ }
+      const now = document.querySelector('.blurb[data-blurb]');
+      if (blurbs[key] && now && now.dataset.blurb === key) {
+        now.innerHTML = blurbHtml(blurbs[key]);
+        now.hidden = false;
+      }
+    } catch { /* offline or blocked: the page simply has no blurb */ } finally {
+      lookups.delete(`blurb:${key}`);
+    }
+  }
+
   // ---------- Cocktail recipes ----------
   // Looked up by name from TheCocktailDB's public API when a cocktail is clicked.
 
@@ -533,6 +594,7 @@
           <p class="when">${esc(fmtDate(p.startsAt))}${past ? ' · finished' : ''}</p>
           <h1>${esc(p.album)}</h1>
           <p class="artist">${esc(p.artist)} · on repeat all night</p>
+          ${blurbBox(p)}
           <dl>
             <dt>Cocktail</dt><dd>🍸 ${cocktailButton(p.cocktail)}</dd>
             <dt>Alcohol-free</dt><dd>🍹 ${esc(p.softDrink)}</dd>
@@ -632,6 +694,7 @@
     $('main').innerHTML = (flash ? `<p class="notice" role="status">${esc(flash)}</p>` : '') + html;
     flash = null;
     loadCovers();
+    loadBlurb();
   }
 
   function go(hash, message) {

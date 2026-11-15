@@ -328,3 +328,8 @@ dialog#recipe::backdrop { background: rgb(0 0 0 / .65); }
 #recipe-body p { margin: 0; overflow-wrap: anywhere; }
 #recipe-body .glass, #recipe-body .source { color: var(--muted); font-size: .9rem; }
 #recipe-body .source { margin-top: 16px; }
+
+/* Album blurb from Wikipedia, on the party page */
+.blurb { margin: 14px 0 4px; max-width: 60ch; }
+.blurb p { margin: 0; overflow-wrap: anywhere; font-size: .95rem; color: var(--text); }
+.blurb .source { color: var(--muted); font-size: .82rem; margin-top: 6px; }
