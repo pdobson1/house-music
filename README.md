@@ -58,6 +58,8 @@ It is a demo, not the product:
 - Album covers are looked up by artist and album name from Apple's public
   iTunes Search API and loaded from Apple's servers. Albums it can't match
   keep the generated coloured sleeve.
+- Clicking a cocktail name shows how to make it, looked up by name from
+  TheCocktailDB's public API. Cocktails it doesn't know get a short message.
 - Nothing is private or secure. Don't enter real passwords or addresses.
 
 ## Put it online for free

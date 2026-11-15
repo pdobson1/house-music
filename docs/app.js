@@ -5,7 +5,7 @@
 (function () {
   'use strict';
 
-  const KEY = 'house-music-demo-v10'; // bump when the sample data changes, so returning visitors see it
+  const KEY = 'house-music-demo-v11'; // bump when the sample data changes, so returning visitors see it
   const $ = (id) => document.getElementById(id);
 
   // ---------- Data ----------
@@ -203,27 +203,86 @@
     }
   }
 
-  // A cover that fails to load is removed, revealing the coloured sleeve underneath.
+  // A cover or cocktail photo that fails to load is removed (the coloured sleeve shows instead of a cover).
   document.addEventListener('error', (event) => {
-    if (event.target.matches && event.target.matches('.sleeve img')) event.target.remove();
+    if (event.target.matches && event.target.matches('.sleeve img, #recipe-body img')) event.target.remove();
   }, true);
+
+  // ---------- Cocktail recipes ----------
+  // Looked up by name from TheCocktailDB's public API when a cocktail is clicked.
+
+  const recipes = new Map(); // normalised name -> recipe object, or null when there is no match
+
+  const cocktailButton = (name) =>
+    `<button class="cocktail" data-recipe="${esc(name)}" aria-haspopup="dialog" title="How to make it">${esc(name)}</button>`;
+
+  async function findRecipe(name) {
+    const key = norm(name);
+    if (recipes.has(key)) return recipes.get(key);
+    // The API matches on spelling, so also try the first word and the other spelling of whisky.
+    const terms = [name, name.replace(/whisky/i, 'whiskey'), name.trim().split(/\s+/)[0]];
+    const wanted = new Set([key, norm(name.replace(/whisky/i, 'whiskey'))]);
+    let found = null;
+    for (const term of [...new Set(terms)]) {
+      if (term.length < 3) continue;
+      const res = await fetch(`https://www.thecocktaildb.com/api/json/v1/1/search.php?s=${encodeURIComponent(term)}`);
+      if (!res.ok) throw new Error('lookup failed');
+      const drinks = (await res.json()).drinks;
+      found = (Array.isArray(drinks) ? drinks : []).find((d) => wanted.has(norm(d.strDrink))) || null;
+      if (found) break;
+    }
+    recipes.set(key, found);
+    return found;
+  }
+
+  function recipeHtml(d) {
+    const rows = [];
+    for (let i = 1; i <= 15; i++) {
+      const ingredient = (d[`strIngredient${i}`] || '').trim();
+      if (ingredient) rows.push(`<li>${esc(`${(d[`strMeasure${i}`] || '').trim()} ${ingredient}`.trim())}</li>`);
+    }
+    return `
+      ${d.strDrinkThumb ? `<img src="${esc(d.strDrinkThumb)}/medium" alt="">` : ''}
+      ${d.strGlass ? `<p class="glass">Serve in: ${esc(d.strGlass.toLowerCase())}</p>` : ''}
+      <h3>Ingredients</h3>
+      <ul>${rows.join('')}</ul>
+      <h3>Method</h3>
+      <p>${esc(d.strInstructions || 'No method given.')}</p>
+      <p class="source">Recipe from TheCocktailDB.</p>`;
+  }
+
+  async function showRecipe(name) {
+    const dialog = $('recipe');
+    $('recipe-title').textContent = name;
+    $('recipe-body').innerHTML = '<p class="empty">Finding the recipe…</p>';
+    if (!dialog.open) dialog.showModal();
+    let html;
+    try {
+      const drink = await findRecipe(name);
+      html = drink ? recipeHtml(drink) : '<p class="empty">We couldn’t find a recipe for this one. Ask the host what goes in it.</p>';
+    } catch {
+      html = '<p class="empty">The recipe couldn’t be loaded just now. Try again in a moment.</p>';
+    }
+    // Ignore the answer if a different cocktail was opened in the meantime.
+    if (dialog.open && $('recipe-title').textContent === name) $('recipe-body').innerHTML = html;
+  }
 
   function card(p, badge) {
     const full = isFull(p);
     return `
-      <a class="card" href="#/party/${p.id}">
+      <div class="card">
         ${sleeve(p, false)}
         <div class="card-body">
           <p class="when">${esc(fmtDate(p.startsAt))}</p>
-          <h3>${esc(p.album)}</h3>
+          <h3><a href="#/party/${p.id}">${esc(p.album)}</a></h3>
           <p class="artist">${esc(p.artist)}</p>
-          <p class="meta">🍸 ${esc(p.cocktail)} · <span class="zero">alcohol-free: ${esc(p.softDrink)}</span></p>
+          <p class="meta">🍸 ${cocktailButton(p.cocktail)} · <span class="zero">alcohol-free: ${esc(p.softDrink)}</span></p>
           <p class="meta">${esc(p.city)} · hosted by ${esc(userById(p.hostId).name)}</p>
           <p class="spots ${full ? 'full' : ''}">${full ? 'Sold out' : `${money(PRICE)} a slot`}</p>
           <p class="slot-strip">${offered(p).map((x) => { const n = left(p, x.id); return `<span class="${n ? '' : 'gone'}">${x.at} · ${n ? `${n} left` : 'full'}</span>`; }).join('')}</p>
           ${badge || ''}
         </div>
-      </a>`;
+      </div>`;
   }
 
   const panel = (title, body, action) => `
@@ -471,7 +530,7 @@
           <h1>${esc(p.album)}</h1>
           <p class="artist">${esc(p.artist)} · on repeat all night</p>
           <dl>
-            <dt>Cocktail</dt><dd>🍸 ${esc(p.cocktail)}</dd>
+            <dt>Cocktail</dt><dd>🍸 ${cocktailButton(p.cocktail)}</dd>
             <dt>Alcohol-free</dt><dd>🍹 ${esc(p.softDrink)}</dd>
             <dt>Host</dt><dd>${esc(host.name)}</dd>
             <dt>Where</dt>
@@ -753,6 +812,10 @@
   });
 
   document.addEventListener('click', (event) => {
+    const recipe = event.target.closest('button[data-recipe]');
+    if (recipe) return showRecipe(recipe.dataset.recipe);
+    // Close the recipe from its button, or by clicking the dimmed area around it.
+    if (event.target.closest('[data-close]') || event.target === $('recipe')) return $('recipe').close();
     const button = event.target.closest('button[data-action]');
     if (!button) return;
     actions[button.dataset.action]({ party: Number(button.dataset.party), user: Number(button.dataset.user) });
