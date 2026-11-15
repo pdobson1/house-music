@@ -45,6 +45,8 @@ It is a demo, not the product:
 - Data is saved in each visitor's own browser. Visitors do not see each
   other's parties or requests.
 - No emails are sent; confirming an email is a button.
+- Every party lists an alcohol-free drink alongside the cocktail, and guests
+  can see who else is attending, with a line about each of them.
 - It tries out paid tickets: every party has three slots (happy hour 5pm,
   early evening 8pm, late 10pm) at £10 each. Guests pick one or more, the host
   approves, then the guest pays at a pretend checkout. No money is taken, and

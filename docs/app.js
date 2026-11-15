@@ -5,7 +5,7 @@
 (function () {
   'use strict';
 
-  const KEY = 'house-music-demo-v6'; // bump when the sample data changes, so returning visitors see it
+  const KEY = 'house-music-demo-v8'; // bump when the sample data changes, so returning visitors see it
   const $ = (id) => document.getElementById(id);
 
   // ---------- Data ----------
@@ -32,18 +32,29 @@
 
   // Sample people and parties so the demo isn't empty. Dates are relative to today.
   function seed() {
-    const user = (id, name) => ({ id, name, email: `${name.toLowerCase().replace(/[^a-z]+/g, '.')}@example.com`, pass: null, verified: true, sample: true });
+    const user = (id, name, bio) => ({ id, name, bio, email: `${name.toLowerCase().replace(/[^a-z]+/g, '.')}@example.com`, pass: null, verified: true, sample: true });
     return {
       nextId: 100,
       me: null,
-      users: [user(1, 'Hattie'), user(2, 'Dev'), user(3, 'Priya'), user(4, 'Gus'), user(5, 'Lou'), user(6, 'Marta'), user(7, 'Gemma and Frank'), user(8, 'Paul'), user(9, 'Sophie')],
+      users: [
+        user(1, 'Hattie', 'Trip-hop lifer. Owns too many turntables and not enough shelves.'),
+        user(2, 'Dev', 'Jazz on Sundays, everything else the rest of the week.'),
+        user(3, 'Priya', 'French house evangelist. Will dance in a small flat.'),
+        user(4, 'Gus', 'Record shop regular. Ask me about B-sides.'),
+        user(5, 'Lou', 'New to Lancaster and looking for good records and good company.'),
+        user(6, 'Marta', 'Shoegaze, dream pop and a decent gin.'),
+        user(7, 'Gemma and Frank', 'Drum and bass couple. The speakers are bigger than the sofa.'),
+        user(8, 'Paul', 'Lights low, volume up.'),
+        user(9, 'Sophie', 'London jazz, loud. Makes a mean mezcal martini.'),
+        user(10, 'Tommack', 'Fan of cheap thrills, mushrooms and maths.'),
+      ],
       parties: [
-        { id: 10, hostId: 1, album: 'Blue Lines', artist: 'Massive Attack', cocktail: 'Negroni', startsAt: inDays(5, 17, 0), city: 'Bowerham', address: '12 Sample Street, Lancaster', capacity: 8, notes: 'Shoes off at the door. Vinyl copy, original pressing.' },
-        { id: 13, hostId: 7, album: 'Timeless', artist: 'Goldie', cocktail: 'Whiskey Sour', startsAt: inDays(8, 17, 0), city: 'Freehold', address: '9 Demo Lane, Lancaster', capacity: 10, notes: 'Played loud, start to finish, all evening. Bring your dancing shoes.' },
-        { id: 11, hostId: 2, album: 'Kind of Blue', artist: 'Miles Davis', cocktail: 'Old Fashioned', startsAt: inDays(12, 17, 0), city: 'Scotforth', address: '4 Example Road, Lancaster', capacity: 6, notes: '' },
-        { id: 14, hostId: 8, album: 'Heaven or Las Vegas', artist: 'Cocteau Twins', cocktail: 'Flaming Dr Pepper', startsAt: inDays(15, 17, 0), city: 'Greaves', address: '3 Mock Avenue, Lancaster', capacity: 6, notes: 'Lights low, volume up.' },
-        { id: 12, hostId: 3, album: 'Discovery', artist: 'Daft Punk', cocktail: 'French 75', startsAt: inDays(19, 17, 0), city: 'Moorlands', address: '27 Placeholder Terrace, Lancaster', capacity: 2, notes: 'Small flat, so just the two spots.' },
-        { id: 15, hostId: 9, album: 'Your Queen Is a Reptile', artist: 'Sons of Kemet', cocktail: 'Mezcal Espresso Martini', startsAt: inDays(22, 17, 0), city: 'Skerton', address: '15 Trial Close, Lancaster', capacity: 8, notes: 'Saxophone, tuba and two drummers. Expect to move.' },
+        { id: 10, hostId: 1, album: 'Blue Lines', artist: 'Massive Attack', cocktail: 'Negroni', softDrink: 'Bitter orange spritz', startsAt: inDays(5, 17, 0), city: 'Bowerham', address: '12 Sample Street, Lancaster', capacity: 8, notes: 'Shoes off at the door. Vinyl copy, original pressing.' },
+        { id: 13, hostId: 7, album: 'Timeless', artist: 'Goldie', cocktail: 'Whiskey Sour', softDrink: 'Ginger and lime sour', startsAt: inDays(8, 17, 0), city: 'Freehold', address: '9 Demo Lane, Lancaster', capacity: 10, notes: 'Played loud, start to finish, all evening. Bring your dancing shoes.' },
+        { id: 11, hostId: 2, album: 'Kind of Blue', artist: 'Miles Davis', cocktail: 'Old Fashioned', softDrink: 'Cold brew tonic', startsAt: inDays(12, 17, 0), city: 'Scotforth', address: '4 Example Road, Lancaster', capacity: 6, notes: '' },
+        { id: 14, hostId: 8, album: 'Heaven or Las Vegas', artist: 'Cocteau Twins', cocktail: 'Flaming Dr Pepper', softDrink: 'Cherry vanilla soda', startsAt: inDays(15, 17, 0), city: 'Greaves', address: '3 Mock Avenue, Lancaster', capacity: 6, notes: 'Lights low, volume up.' },
+        { id: 12, hostId: 3, album: 'Discovery', artist: 'Daft Punk', cocktail: 'French 75', softDrink: 'Elderflower fizz', startsAt: inDays(19, 17, 0), city: 'Moorlands', address: '27 Placeholder Terrace, Lancaster', capacity: 2, notes: 'Small flat, so just the two spots.' },
+        { id: 15, hostId: 9, album: 'Your Queen Is a Reptile', artist: 'Sons of Kemet', cocktail: 'Mezcal Espresso Martini', softDrink: 'Espresso tonic', startsAt: inDays(22, 17, 0), city: 'Skerton', address: '15 Trial Close, Lancaster', capacity: 8, notes: 'Saxophone, tuba and two drummers. Expect to move.' },
       ],
       // status: pending (asked) -> approved (host said yes, payment due) -> paid (confirmed); or declined
       rsvps: [
@@ -59,6 +70,8 @@
         { partyId: 12, userId: 6, slots: ['happy', 'early', 'late'], status: 'paid' },
         { partyId: 15, userId: 8, slots: ['early', 'late'], status: 'paid' },
         { partyId: 15, userId: 2, slots: ['happy'], status: 'pending' },
+        { partyId: 15, userId: 10, slots: ['happy', 'early', 'late'], status: 'paid' },
+        { partyId: 10, userId: 10, slots: ['late'], status: 'paid' },
       ],
     };
   }
@@ -181,7 +194,7 @@
           <p class="when">${esc(fmtDate(p.startsAt))}</p>
           <h3>${esc(p.album)}</h3>
           <p class="artist">${esc(p.artist)}</p>
-          <p class="meta">🍸 ${esc(p.cocktail)}</p>
+          <p class="meta">🍸 ${esc(p.cocktail)} · <span class="zero">alcohol-free: ${esc(p.softDrink)}</span></p>
           <p class="meta">${esc(p.city)} · hosted by ${esc(userById(p.hostId).name)}</p>
           <p class="spots ${full ? 'full' : ''}">${full ? 'Sold out' : `${money(PRICE)} a slot`}</p>
           <p class="slot-strip">${SLOTS.map((x) => { const n = left(p, x.id); return `<span class="${n ? '' : 'gone'}">${x.at} · ${n ? `${n} left` : 'full'}</span>`; }).join('')}</p>
@@ -220,6 +233,9 @@
         <h1>Sign up</h1>
         ${errorBox(error)}
         <label>Your name <input name="name" value="${esc(values.name)}" maxlength="60" autocomplete="name" required></label>
+        <label><span>A line about you <span class="opt">(optional)</span></span>
+          <input name="bio" value="${esc(values.bio)}" maxlength="140" placeholder="Fan of cheap thrills, mushrooms and maths.">
+          <small>Other guests see this on parties you’re going to.</small></label>
         <label>Email <input type="email" name="email" value="${esc(values.email)}" autocomplete="email" required></label>
         <label>Password <input type="password" name="password" minlength="8" autocomplete="new-password" required>
           <small>At least 8 characters. This is a demo: make one up, don’t reuse a real one.</small></label>
@@ -264,15 +280,19 @@
         </div>
         <div class="row">
           <label>Cocktail you’ll serve <input name="cocktail" value="${esc(v.cocktail)}" maxlength="120" placeholder="Negroni" required></label>
+          <label>Alcohol-free drink <input name="softDrink" value="${esc(v.softDrink)}" maxlength="120" placeholder="Bitter orange spritz" required>
+            <small>Every party offers one, so everyone has something good to drink.</small></label>
+        </div>
+        <div class="row">
           <label>Date <input type="date" name="date" value="${esc(v.date)}" min="${localIso(new Date()).slice(0, 10)}" required></label>
+          <label>Guests per slot <input type="number" name="capacity" value="${esc(v.capacity)}" min="1" max="200" required></label>
         </div>
         <div class="row">
           <label>Part of Lancaster <input name="city" value="${esc(v.city)}" maxlength="80" placeholder="Bowerham" required>
             <small>Shown to everyone.</small></label>
-          <label>Guests per slot <input type="number" name="capacity" value="${esc(v.capacity)}" min="1" max="200" required></label>
+          <label>Address <input name="address" value="${esc(v.address)}" maxlength="200" required>
+            <small>Only shown to guests who are approved and paid. This is a demo: use a made-up address.</small></label>
         </div>
-        <label>Address <input name="address" value="${esc(v.address)}" maxlength="200" required>
-          <small>Only shown to guests you approve. This is a demo: use a made-up address.</small></label>
         <label><span>Anything guests should know <span class="opt">(optional)</span></span>
           <textarea name="notes" rows="3" maxlength="1000">${esc(v.notes)}</textarea></label>
         <button class="btn">Publish party</button>
@@ -345,10 +365,22 @@
       const tickets = sold.reduce((n, r) => n + r.slots.length, 0);
       lists += `<h2>Ticket sales</h2><p class="takings"><strong>${money(tickets * PRICE)}</strong> from ${tickets} ${tickets === 1 ? 'ticket' : 'tickets'}</p>`;
     }
-    if (insider) {
-      const guests = state.rsvps.filter((r) => r.partyId === p.id && holds(r));
-      lists += `<h2>Guest list</h2>${guests.length ? `<ul class="people">${guests.map((r) => `
-        <li><span>${esc(userById(r.userId).name)} ${chips(r.slots)}${r.status === 'approved' ? ' <small>payment due</small>' : ''}</span>${isHost ? act('decline', 'Remove', 'small ghost', r.userId) : ''}</li>`).join('')}</ul>` : '<p class="empty">Nobody is confirmed yet.</p>'}`;
+    // Everyone signed in can see who's coming (approved guests), but not the address.
+    const guests = state.rsvps.filter((r) => r.partyId === p.id && holds(r));
+    const guestItem = (r) => {
+      const g = userById(r.userId);
+      return `<li><span><strong>${esc(g.name)}</strong> ${chips(r.slots)}${isHost && r.status === 'approved' ? ' <small>payment due</small>' : ''}
+        ${g.bio ? `<em class="bio">${esc(g.bio)}</em>` : ''}</span>${isHost ? act('decline', 'Remove', 'small ghost', r.userId) : ''}</li>`;
+    };
+    if (isHost) {
+      lists += `<h2>Guest list</h2>${guests.length ? `<ul class="people">${guests.map(guestItem).join('')}</ul>` : '<p class="empty">Nobody is confirmed yet.</p>'}`;
+    } else {
+      lists += `
+        <details class="attending"${status === 'paid' ? ' open' : ''}>
+          <summary>See who’s attending <span>${guests.length}</span></summary>
+          ${!user ? '<p class="empty"><a href="#/login">Sign in</a> to see who’s coming.</p>'
+            : guests.length ? `<ul class="people">${guests.map(guestItem).join('')}</ul>` : '<p class="empty">Nobody is confirmed yet. Be the first.</p>'}
+        </details>`;
     }
 
     return `
@@ -360,6 +392,7 @@
           <p class="artist">${esc(p.artist)} · on repeat all night</p>
           <dl>
             <dt>Cocktail</dt><dd>🍸 ${esc(p.cocktail)}</dd>
+            <dt>Alcohol-free</dt><dd>🍹 ${esc(p.softDrink)}</dd>
             <dt>Host</dt><dd>${esc(host.name)}</dd>
             <dt>Where</dt>
             <dd>${esc(p.city)}<br>${insider ? `<strong>${esc(p.address)}</strong>` : '<small>The address is shared once you’ve been approved and paid.</small>'}</dd>
@@ -409,6 +442,11 @@
     };
     return `
       <h1>My parties</h1>
+      <form class="bio-form" data-form="bio">
+        <label><span>A line about you <span class="opt">(shown to other guests)</span></span>
+          <input name="bio" value="${esc(user.bio)}" maxlength="140" placeholder="Fan of cheap thrills, mushrooms and maths."></label>
+        <button class="btn small">Save</button>
+      </form>
       <h2>Hosting</h2>
       ${hosting.length ? `<div class="grid">${hosting.map((p) => card(p, waitingBadge(p))).join('')}</div>` : '<p class="empty">You’re not hosting anything yet. <a href="#/host">Host a party</a></p>'}
       <h2>Attending</h2>
@@ -464,6 +502,7 @@
   const forms = {
     async register(data) {
       const name = clean(data.get('name'), 60);
+      const bio = clean(data.get('bio'), 140);
       const email = clean(data.get('email'), 254).toLowerCase();
       const password = String(data.get('password') || '');
       let error = null;
@@ -471,8 +510,8 @@
       else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) error = 'That email address doesn’t look right.';
       else if (password.length < 8) error = 'Use a password of at least 8 characters.';
       else if (state.users.some((u) => u.email === email)) error = 'That email already has an account in this demo. Sign in instead.';
-      if (error) return render(registerPage(error, { name, email }));
-      const user = { id: state.nextId++, name, email, pass: await hashPassword(email, password), verified: false };
+      if (error) return render(registerPage(error, { name, email, bio }));
+      const user = { id: state.nextId++, name, bio, email, pass: await hashPassword(email, password), verified: false };
       state.users.push(user);
       save();
       go(`#/check-email/${user.id}`);
@@ -496,6 +535,7 @@
         album: clean(data.get('album'), 120),
         artist: clean(data.get('artist'), 120),
         cocktail: clean(data.get('cocktail'), 120),
+        softDrink: clean(data.get('softDrink'), 120),
         date: clean(data.get('date'), 10),
         city: clean(data.get('city'), 80),
         address: clean(data.get('address'), 200),
@@ -505,6 +545,7 @@
       let error = null;
       if (!v.album || !v.artist) error = 'Which album are you playing, and who is it by?';
       else if (!v.cocktail) error = 'Pick the cocktail you’ll be serving.';
+      else if (!v.softDrink) error = 'Add an alcohol-free drink. Every party needs one.';
       else if (!/^\d{4}-\d{2}-\d{2}$/.test(v.date)) error = 'Choose a date.';
       else if (v.date < localIso(new Date()).slice(0, 10)) error = 'That date is in the past.';
       else if (!v.city) error = 'Add your part of Lancaster so guests know roughly where you are.';
@@ -517,6 +558,14 @@
       save();
       go(`#/party/${party.id}`, 'Your party is published.');
     },
+  };
+
+  forms.bio = function (data) {
+    const user = me();
+    if (!user) return go('#/login');
+    user.bio = clean(data.get('bio'), 140);
+    save();
+    go('#/me', 'Saved your bio.');
   };
 
   forms.ask = function (data, form) {

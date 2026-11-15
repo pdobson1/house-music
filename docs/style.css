@@ -241,3 +241,22 @@ label.slot input { width: 18px; height: 18px; margin: 0; accent-color: var(--acc
   label.slot { grid-template-columns: auto 1fr auto; gap: 10px; }
   .slot-left { grid-column: 2; grid-row: 2; margin-top: -6px; }
 }
+
+/* Who's attending */
+.attending { margin-top: 28px; }
+.attending summary {
+  cursor: pointer; list-style: none; display: inline-flex; align-items: center; gap: 10px;
+  font: 500 .78rem var(--sans); text-transform: uppercase; letter-spacing: .2em; color: var(--text);
+  padding: 11px 18px; border: 1px solid var(--brass); border-radius: 3px;
+}
+.attending summary::-webkit-details-marker { display: none; }
+.attending summary::after { content: '+'; color: var(--accent); font-size: 1rem; line-height: 1; }
+.attending[open] summary::after { content: '−'; }
+.attending summary:hover { border-color: var(--accent); color: var(--accent); }
+.attending summary span { background: var(--accent); color: var(--accent-ink); border-radius: 2px; padding: 1px 7px; letter-spacing: .05em; }
+.attending .people, .attending .empty { margin-top: 14px; }
+.people .bio { display: block; color: var(--muted); font-size: .92rem; margin-top: 4px; }
+.people strong { font-family: var(--display); font-weight: 400; font-size: 1.1rem; }
+.bio-form { display: flex; gap: 12px; align-items: end; flex-wrap: wrap; max-width: 680px; margin: 8px 0 8px; }
+.bio-form label { flex: 1 1 320px; }
+.zero { color: #8fcfc6; }
