@@ -31,6 +31,24 @@ npm test
 With no email provider set, no email is sent: the confirmation link is printed in
 the server console and shown on screen so you can try the whole flow locally.
 
+## Proof of concept on GitHub Pages
+
+`docs/` holds a front-end only version: the same screens and flows, running
+entirely in the visitor's browser with no server.
+
+To publish it: in the repository on GitHub go to Settings > Pages, set Source
+to "Deploy from a branch", pick the branch and the `/docs` folder, and save.
+It appears at `https://<your-username>.github.io/house-music/` a minute or so later.
+
+It is a demo, not the product:
+
+- Data is saved in each visitor's own browser. Visitors do not see each
+  other's parties or requests.
+- No emails are sent; confirming an email is a button.
+- A "Try as" menu switches between sample people so one person can see both
+  the guest's and the host's side.
+- Nothing is private or secure. Don't enter real passwords or addresses.
+
 ## Put it online for free
 
 The app is set up for Render (web hosting), Turso (database) and Brevo
@@ -73,3 +91,4 @@ One of `BREVO_API_KEY` or `SMTP_URL` is required when `NODE_ENV=production`.
 - `src/mail.js` – email sending
 - `views/`, `public/` – pages and styles
 - `render.yaml` – Render deployment blueprint
+- `docs/` – front-end only proof of concept for GitHub Pages
