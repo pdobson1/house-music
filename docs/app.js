@@ -5,7 +5,7 @@
 (function () {
   'use strict';
 
-  const KEY = 'house-music-demo-v2'; // bump when the sample data changes, so returning visitors see it
+  const KEY = 'house-music-demo-v3'; // bump when the sample data changes, so returning visitors see it
   const $ = (id) => document.getElementById(id);
 
   // ---------- Data ----------
@@ -25,7 +25,7 @@
     return {
       nextId: 100,
       me: null,
-      users: [user(1, 'Hattie'), user(2, 'Dev'), user(3, 'Priya'), user(4, 'Gus'), user(5, 'Lou'), user(6, 'Marta'), user(7, 'Frank and Gemma')],
+      users: [user(1, 'Hattie'), user(2, 'Dev'), user(3, 'Priya'), user(4, 'Gus'), user(5, 'Lou'), user(6, 'Marta'), user(7, 'Gemma and Frank')],
       parties: [
         { id: 10, hostId: 1, album: 'Blue Lines', artist: 'Massive Attack', cocktail: 'Negroni', startsAt: inDays(5, 19, 30), city: 'Bowerham', address: '12 Sample Street, Lancaster', capacity: 8, notes: 'Shoes off at the door. Vinyl copy, original pressing.' },
         { id: 13, hostId: 7, album: 'Timeless', artist: 'Goldie', cocktail: 'Whiskey Sour', startsAt: inDays(8, 20, 0), city: 'Freehold', address: '9 Demo Lane, Lancaster', capacity: 10, notes: 'Played loud, start to finish, all evening. Bring your dancing shoes.' },
