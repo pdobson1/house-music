@@ -5,7 +5,7 @@
 (function () {
   'use strict';
 
-  const KEY = 'house-music-demo-v3'; // bump when the sample data changes, so returning visitors see it
+  const KEY = 'house-music-demo-v4'; // bump when the sample data changes, so returning visitors see it
   const $ = (id) => document.getElementById(id);
 
   // ---------- Data ----------
@@ -25,11 +25,12 @@
     return {
       nextId: 100,
       me: null,
-      users: [user(1, 'Hattie'), user(2, 'Dev'), user(3, 'Priya'), user(4, 'Gus'), user(5, 'Lou'), user(6, 'Marta'), user(7, 'Gemma and Frank')],
+      users: [user(1, 'Hattie'), user(2, 'Dev'), user(3, 'Priya'), user(4, 'Gus'), user(5, 'Lou'), user(6, 'Marta'), user(7, 'Gemma and Frank'), user(8, 'Paul')],
       parties: [
         { id: 10, hostId: 1, album: 'Blue Lines', artist: 'Massive Attack', cocktail: 'Negroni', startsAt: inDays(5, 19, 30), city: 'Bowerham', address: '12 Sample Street, Lancaster', capacity: 8, notes: 'Shoes off at the door. Vinyl copy, original pressing.' },
         { id: 13, hostId: 7, album: 'Timeless', artist: 'Goldie', cocktail: 'Whiskey Sour', startsAt: inDays(8, 20, 0), city: 'Freehold', address: '9 Demo Lane, Lancaster', capacity: 10, notes: 'Played loud, start to finish, all evening. Bring your dancing shoes.' },
         { id: 11, hostId: 2, album: 'Kind of Blue', artist: 'Miles Davis', cocktail: 'Old Fashioned', startsAt: inDays(12, 20, 0), city: 'Scotforth', address: '4 Example Road, Lancaster', capacity: 6, notes: '' },
+        { id: 14, hostId: 8, album: 'Heaven or Las Vegas', artist: 'Cocteau Twins', cocktail: 'Flaming Dr Pepper', startsAt: inDays(15, 19, 30), city: 'Greaves', address: '3 Mock Avenue, Lancaster', capacity: 6, notes: 'Lights low, volume up.' },
         { id: 12, hostId: 3, album: 'Discovery', artist: 'Daft Punk', cocktail: 'French 75', startsAt: inDays(19, 19, 0), city: 'Moorlands', address: '27 Placeholder Terrace, Lancaster', capacity: 2, notes: 'Small flat, so just the two spots.' },
       ],
       rsvps: [
@@ -39,6 +40,8 @@
         { partyId: 10, userId: 2, status: 'pending' },
         { partyId: 13, userId: 3, status: 'approved' },
         { partyId: 13, userId: 5, status: 'pending' },
+        { partyId: 14, userId: 1, status: 'approved' },
+        { partyId: 14, userId: 4, status: 'pending' },
         { partyId: 12, userId: 4, status: 'approved' },
         { partyId: 12, userId: 6, status: 'approved' },
       ],
