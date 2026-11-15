@@ -5,7 +5,7 @@
 (function () {
   'use strict';
 
-  const KEY = 'house-music-demo-v1';
+  const KEY = 'house-music-demo-v2'; // bump when the sample data changes, so returning visitors see it
   const $ = (id) => document.getElementById(id);
 
   // ---------- Data ----------
@@ -21,13 +21,14 @@
 
   // Sample people and parties so the demo isn't empty. Dates are relative to today.
   function seed() {
-    const user = (id, name) => ({ id, name, email: `${name.toLowerCase()}@example.com`, pass: null, verified: true, sample: true });
+    const user = (id, name) => ({ id, name, email: `${name.toLowerCase().replace(/[^a-z]+/g, '.')}@example.com`, pass: null, verified: true, sample: true });
     return {
       nextId: 100,
       me: null,
-      users: [user(1, 'Hattie'), user(2, 'Dev'), user(3, 'Priya'), user(4, 'Gus'), user(5, 'Lou'), user(6, 'Marta')],
+      users: [user(1, 'Hattie'), user(2, 'Dev'), user(3, 'Priya'), user(4, 'Gus'), user(5, 'Lou'), user(6, 'Marta'), user(7, 'Frank and Gemma')],
       parties: [
         { id: 10, hostId: 1, album: 'Blue Lines', artist: 'Massive Attack', cocktail: 'Negroni', startsAt: inDays(5, 19, 30), city: 'Bowerham', address: '12 Sample Street, Lancaster', capacity: 8, notes: 'Shoes off at the door. Vinyl copy, original pressing.' },
+        { id: 13, hostId: 7, album: 'Timeless', artist: 'Goldie', cocktail: 'Whiskey Sour', startsAt: inDays(8, 20, 0), city: 'Freehold', address: '9 Demo Lane, Lancaster', capacity: 10, notes: 'Played loud, start to finish, all evening. Bring your dancing shoes.' },
         { id: 11, hostId: 2, album: 'Kind of Blue', artist: 'Miles Davis', cocktail: 'Old Fashioned', startsAt: inDays(12, 20, 0), city: 'Scotforth', address: '4 Example Road, Lancaster', capacity: 6, notes: '' },
         { id: 12, hostId: 3, album: 'Discovery', artist: 'Daft Punk', cocktail: 'French 75', startsAt: inDays(19, 19, 0), city: 'Moorlands', address: '27 Placeholder Terrace, Lancaster', capacity: 2, notes: 'Small flat, so just the two spots.' },
       ],
@@ -36,6 +37,8 @@
         { partyId: 10, userId: 6, status: 'approved' },
         { partyId: 10, userId: 5, status: 'pending' },
         { partyId: 10, userId: 2, status: 'pending' },
+        { partyId: 13, userId: 3, status: 'approved' },
+        { partyId: 13, userId: 5, status: 'pending' },
         { partyId: 12, userId: 4, status: 'approved' },
         { partyId: 12, userId: 6, status: 'approved' },
       ],
