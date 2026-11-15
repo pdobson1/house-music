@@ -68,12 +68,14 @@ test('cannot sign in until the email is verified', async (t) => {
   assert.equal((await c(second)).status, 400, 'links are single use');
 });
 
-test('hosting, signing up, capacity and address privacy', async (t) => {
-  const { server, client, signUp, mailer } = await start();
+test('host approves guests before they see the address', async (t) => {
+  const { server, client, signUp, mailer, db } = await start();
   t.after(() => server.close());
   const host = await signUp('Hattie', 'host@example.com');
   const guest = await signUp('Gus', 'gus@example.com');
   const late = await signUp('Lou', 'lou@example.com');
+  const id = (email) => db.prepare('SELECT id FROM users WHERE email = ?').get(email).id;
+  const [gus, lou] = [id('gus@example.com'), id('lou@example.com')];
 
   assert.equal((await host('/parties', party({ starts_at: '2001-01-01T20:00' }))).status, 400);
   const created = await host('/parties', party());
@@ -84,33 +86,74 @@ test('hosting, signing up, capacity and address privacy', async (t) => {
   assert.match(listing.text, /Blue Lines/);
   assert.match(listing.text, /Negroni/);
   assert.doesNotMatch(listing.text, /Secret Street/);
-
   assert.doesNotMatch((await client()(url)).text, /Secret Street/);
-  assert.doesNotMatch((await guest(url)).text, /Secret Street/);
   assert.match((await host(url)).text, /Secret Street/);
 
+  // Asking for a spot emails the host but reveals nothing yet.
   await guest(`${url}/rsvp`, {});
+  assert.equal(mailer.outbox.at(-1).to, 'host@example.com');
+  const waiting = await guest(url);
+  assert.match(waiting.text, /Request sent/);
+  assert.doesNotMatch(waiting.text, /Secret Street/);
+  assert.match((await host(url)).text, /Gus/);
+  assert.match((await host('/me')).text, /1 request waiting/);
+
+  // Guests can't approve themselves, or each other.
+  await late(`${url}/rsvp`, {});
+  assert.equal((await guest(`${url}/guests/${gus}/approve`, {})).status, 403);
+  assert.equal((await late(`${url}/guests/${gus}/approve`, {})).status, 403);
+  assert.doesNotMatch((await guest(url)).text, /Secret Street/);
+
+  await host(`${url}/guests/${gus}/approve`, {});
+  assert.equal(mailer.outbox.at(-1).to, 'gus@example.com');
+  assert.doesNotMatch(mailer.outbox.at(-1).text, /Secret Street/);
   const going = await guest(url);
   assert.match(going.text, /Secret Street/);
   assert.match(going.text, /on the list/);
 
-  // Capacity is 1, so the next person is turned away and never sees the address.
-  assert.match((await late(`${url}/rsvp`, {})).location, /full=1/);
+  // Capacity is 1, so a second approval is refused and Lou still can't see the address.
+  assert.match((await host(`${url}/guests/${lou}/approve`, {})).location, /full=1/);
   assert.doesNotMatch((await late(url)).text, /Secret Street/);
+  assert.match((await late('/me')).text, /Waiting for host/);
 
-  // A spot frees up when a guest leaves.
+  // Gus gives up his spot, loses the address, and Lou can now be approved.
   await guest(`${url}/leave`, {});
   assert.doesNotMatch((await guest(url)).text, /Secret Street/);
-  assert.doesNotMatch((await late(`${url}/rsvp`, {})).location, /full/);
-  assert.match((await late('/me')).text, /Blue Lines/);
+  assert.doesNotMatch((await host(`${url}/guests/${lou}/approve`, {})).location, /full/);
+  assert.match((await late(url)).text, /Secret Street/);
 
-  // Only the host can cancel, and guests are told.
+  // The host removes Lou: the address goes away and Lou can't simply ask again.
+  await host(`${url}/guests/${lou}/decline`, {});
+  assert.equal(mailer.outbox.at(-1).to, 'lou@example.com');
+  await late(`${url}/rsvp`, {});
+  await late(`${url}/leave`, {});
+  await late(`${url}/rsvp`, {});
+  const declined = await late(url);
+  assert.doesNotMatch(declined.text, /Secret Street/);
+  assert.match(declined.text, /isn’t able to offer you a spot/);
+  assert.doesNotMatch((await host(url)).text, /Lou/);
+
+  // Only the host can cancel; people still on the list are told, declined ones are not.
+  await guest(`${url}/rsvp`, {});
   assert.equal((await guest(`${url}/cancel`, {})).status, 403);
   const before = mailer.outbox.length;
   await host(`${url}/cancel`, {});
   assert.equal((await host(url)).status, 404);
-  assert.equal(mailer.outbox.length, before + 1);
-  assert.equal(mailer.outbox.at(-1).to, 'lou@example.com');
+  assert.deepEqual(mailer.outbox.slice(before).map((m) => m.to), ['gus@example.com']);
+});
+
+test('databases from before host approval keep their guests', () => {
+  const { DatabaseSync } = require('node:sqlite');
+  const fs = require('node:fs'), os = require('node:os'), path = require('node:path');
+  const file = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'hm-')), 'old.db');
+  const old = new DatabaseSync(file);
+  old.exec(`CREATE TABLE rsvps (party_id INTEGER NOT NULL, user_id INTEGER NOT NULL,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')), PRIMARY KEY (party_id, user_id));
+    INSERT INTO rsvps (party_id, user_id) VALUES (1, 1);`);
+  old.close();
+  const db = openDb(file);
+  assert.equal(db.prepare('SELECT status FROM rsvps').get().status, 'approved');
+  db.close();
 });
 
 test('user input is escaped and cross-site posts are refused', async (t) => {

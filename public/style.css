@@ -110,3 +110,10 @@ details.confirm p { margin: 0; }
   .party { grid-template-columns: 1fr; gap: 20px; }
   .sleeve.big { width: 180px; }
 }
+
+.badge { display: inline-block; font: 600 .78rem system-ui, sans-serif; padding: 3px 9px; border-radius: 999px; margin-top: .6em !important; background: #2c261b; color: var(--accent); }
+.badge.approved { background: #1d2c1f; color: #9ed6a3; }
+.people { list-style: none; padding: 0; margin: 0; display: grid; gap: 8px; }
+.people li { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 10px 12px; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; }
+.people li span { flex: 1; min-width: 8ch; overflow-wrap: anywhere; }
+.people form { margin: 0; }

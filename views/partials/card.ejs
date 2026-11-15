@@ -9,5 +9,7 @@
     <p class="spots <%= p.going >= p.capacity ? 'full' : '' %>">
       <%= p.going >= p.capacity ? 'Full' : `${p.capacity - p.going} of ${p.capacity} spots left` %>
     </p>
+    <% if (locals.mine && p.my_status) { %><p class="badge <%= p.my_status %>"><%= p.my_status === 'approved' ? 'You’re going' : 'Waiting for host' %></p><% } %>
+    <% if (locals.hosted && p.waiting) { %><p class="badge pending"><%= p.waiting %> <%= p.waiting === 1 ? 'request' : 'requests' %> waiting</p><% } %>
   </div>
 </a>

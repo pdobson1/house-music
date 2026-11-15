@@ -12,7 +12,7 @@
       <dt>Where</dt>
       <dd><%= party.city %>
         <% if (party.address) { %><br><strong><%= party.address %></strong>
-        <% } else { %><br><small>The address is shared once you sign up.</small><% } %>
+        <% } else { %><br><small>The address is shared once the host approves you.</small><% } %>
       </dd>
       <dt>Spots</dt><dd><%= party.going %> of <%= party.capacity %> taken</dd>
     </dl>
@@ -23,27 +23,52 @@
       <details class="confirm">
         <summary class="btn danger">Cancel party</summary>
         <form method="post" action="/parties/<%= party.id %>/cancel">
-          <p>This removes the party and emails everyone on the guest list.</p>
+          <p>This removes the party and emails everyone who asked to come.</p>
           <button class="btn danger">Yes, cancel it</button>
         </form>
       </details>
-    <% } else if (isGoing) { %>
+    <% } else if (myStatus === 'approved') { %>
       <p class="notice">You’re on the list. See you there.</p>
       <form method="post" action="/parties/<%= party.id %>/leave"><button class="btn ghost">Give up my spot</button></form>
+    <% } else if (myStatus === 'pending') { %>
+      <p class="notice">Request sent. <%= party.host_name %> will get back to you, and we’ll email you when they do.</p>
+      <form method="post" action="/parties/<%= party.id %>/leave"><button class="btn ghost">Withdraw request</button></form>
+    <% } else if (myStatus === 'declined') { %>
+      <p class="notice">The host isn’t able to offer you a spot at this one.</p>
     <% } else if (past) { %>
       <p class="notice">This party has already happened.</p>
     <% } else if (party.going >= party.capacity) { %>
       <p class="notice">This party is full.</p>
     <% } else if (user) { %>
-      <form method="post" action="/parties/<%= party.id %>/rsvp"><button class="btn">Sign me up</button></form>
+      <form method="post" action="/parties/<%= party.id %>/rsvp"><button class="btn">Ask for a spot</button></form>
+      <p><small>The host approves each guest.</small></p>
     <% } else { %>
-      <a class="btn" href="/login?next=/parties/<%= party.id %>">Sign in to attend</a>
+      <a class="btn" href="/login?next=/parties/<%= party.id %>">Sign in to ask for a spot</a>
     <% } %>
 
-    <% if (isHost || isGoing) { %>
+    <% if (isHost) { %>
+      <h2>Requests waiting for you</h2>
+      <% if (!requests.length) { %><p class="empty">No requests waiting.</p><% } else { %>
+        <ul class="people">
+          <% for (const g of requests) { %>
+            <li><span><%= g.name %></span>
+              <form method="post" action="/parties/<%= party.id %>/guests/<%= g.id %>/approve"><button class="btn small">Approve</button></form>
+              <form method="post" action="/parties/<%= party.id %>/guests/<%= g.id %>/decline"><button class="btn small ghost">Decline</button></form>
+            </li>
+          <% } %>
+        </ul>
+      <% } %>
+    <% } %>
+    <% if (isHost || myStatus === 'approved') { %>
       <h2>Guest list</h2>
-      <% if (!guests.length) { %><p class="empty">Nobody has signed up yet.</p><% } else { %>
-        <ul class="guests"><% for (const g of guests) { %><li><%= g.name %></li><% } %></ul>
+      <% if (!guests.length) { %><p class="empty">Nobody is confirmed yet.</p><% } else { %>
+        <ul class="people">
+          <% for (const g of guests) { %>
+            <li><span><%= g.name %></span>
+              <% if (isHost) { %><form method="post" action="/parties/<%= party.id %>/guests/<%= g.id %>/decline"><button class="btn small ghost">Remove</button></form><% } %>
+            </li>
+          <% } %>
+        </ul>
       <% } %>
     <% } %>
   </div>

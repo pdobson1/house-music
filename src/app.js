@@ -93,6 +93,14 @@ function createApp({ db, mailer, baseUrl, trustProxy = false }) {
     return link;
   }
 
+  async function notify(message) {
+    try {
+      await mailer.send(message);
+    } catch (err) {
+      console.error(`Failed to email "${message.subject}":`, err.message);
+    }
+  }
+
   function startSession(res, userId) {
     const token = auth.newToken();
     db.prepare('INSERT INTO sessions (token_hash, user_id, expires) VALUES (?, ?, ?)')
@@ -104,7 +112,8 @@ function createApp({ db, mailer, baseUrl, trustProxy = false }) {
 
   const partySelect = `
     SELECT p.*, u.name AS host_name,
-           (SELECT COUNT(*) FROM rsvps r WHERE r.party_id = p.id) AS going
+           (SELECT COUNT(*) FROM rsvps r WHERE r.party_id = p.id AND r.status = 'approved') AS going,
+           (SELECT COUNT(*) FROM rsvps r WHERE r.party_id = p.id AND r.status = 'pending') AS waiting
     FROM parties p JOIN users u ON u.id = p.host_id`;
 
   // ---------- Browse ----------
@@ -230,8 +239,8 @@ function createApp({ db, mailer, baseUrl, trustProxy = false }) {
     else if (!v.cocktail) error = 'Pick the cocktail you’ll be serving.';
     else if (!STARTS_AT_RE.test(v.starts_at) || Number.isNaN(Date.parse(v.starts_at))) error = 'Choose a date and time.';
     else if (v.starts_at < cutoff()) error = 'That date is in the past.';
-    else if (!v.city) error = 'Add a neighbourhood or city so guests know roughly where you are.';
-    else if (!v.address) error = 'Add your address. Only guests who sign up will see it.';
+    else if (!v.city) error = 'Add your part of Lancaster so guests know roughly where you are.';
+    else if (!v.address) error = 'Add your address. Only guests you approve will see it.';
     else if (!(v.capacity >= 1 && v.capacity <= 200)) error = 'Guest limit must be between 1 and 200.';
     if (error) return res.status(400).render('party-form', { title: 'Host a party', error, values: v, minDate: cutoff() });
 
@@ -253,54 +262,108 @@ function createApp({ db, mailer, baseUrl, trustProxy = false }) {
   app.get('/parties/:id', loadParty, (req, res) => {
     const party = req.party;
     const isHost = Boolean(req.user && req.user.id === party.host_id);
-    const isGoing = Boolean(req.user && db.prepare('SELECT 1 FROM rsvps WHERE party_id = ? AND user_id = ?').get(party.id, req.user.id));
-    // The street address and the guest list are private to the host and confirmed guests.
-    const insider = isHost || isGoing;
-    const guests = insider
-      ? db.prepare('SELECT u.name FROM rsvps r JOIN users u ON u.id = r.user_id WHERE r.party_id = ? ORDER BY r.created_at').all(party.id)
-      : [];
+    const mine = req.user && db.prepare('SELECT status FROM rsvps WHERE party_id = ? AND user_id = ?').get(party.id, req.user.id);
+    const myStatus = mine ? mine.status : null;
+    // The street address and the guest list are private to the host and guests the host has approved.
+    const insider = isHost || myStatus === 'approved';
+    const people = (status) => db.prepare(
+      'SELECT u.id, u.name FROM rsvps r JOIN users u ON u.id = r.user_id WHERE r.party_id = ? AND r.status = ? ORDER BY r.created_at'
+    ).all(party.id, status);
     res.render('party', {
       title: `${party.album} at ${party.host_name}’s`,
       party: { ...party, address: insider ? party.address : null },
-      isHost, isGoing, guests,
+      isHost, myStatus,
+      guests: insider ? people('approved') : [],
+      requests: isHost ? people('pending') : [],
       past: party.starts_at < cutoff(),
-      error: req.query.full ? 'Sorry, the last spot just went.' : null,
+      error: req.query.full ? 'The party is full, so nobody else can be approved.' : null,
     });
   });
 
-  app.post('/parties/:id/rsvp', requireUser, loadParty, (req, res) => {
+  // A guest asks for a spot. The host has to approve before they see the address.
+  app.post('/parties/:id/rsvp', requireUser, loadParty, async (req, res) => {
     const party = req.party;
-    if (party.host_id === req.user.id || party.starts_at < cutoff()) return res.redirect(`/parties/${party.id}`);
-    // Only take the spot if there is still room; done in one statement so two people can't both get the last one.
-    const info = db.prepare(
-      `INSERT OR IGNORE INTO rsvps (party_id, user_id)
-       SELECT ?, ? WHERE (SELECT COUNT(*) FROM rsvps WHERE party_id = ?) < ?`
-    ).run(party.id, req.user.id, party.id, party.capacity);
-    const already = db.prepare('SELECT 1 FROM rsvps WHERE party_id = ? AND user_id = ?').get(party.id, req.user.id);
-    res.redirect(`/parties/${party.id}${info.changes || already ? '' : '?full=1'}`);
+    const open = party.host_id !== req.user.id && party.starts_at >= cutoff() && party.going < party.capacity;
+    const info = open
+      ? db.prepare(`INSERT OR IGNORE INTO rsvps (party_id, user_id, status) VALUES (?, ?, 'pending')`).run(party.id, req.user.id)
+      : { changes: 0 };
+    if (info.changes) {
+      const host = db.prepare('SELECT name, email FROM users WHERE id = ?').get(party.host_id);
+      await notify({
+        to: host.email,
+        subject: `${req.user.name} wants to come to your ${party.album} party`,
+        text: `Hi ${host.name},\n\n${req.user.name} has asked for a spot at your ${party.album} listening party on ${fmtDate(party.starts_at)}.\n\nApprove or decline here: ${baseUrl}/parties/${party.id}`,
+      });
+    }
+    res.redirect(`/parties/${party.id}`);
   });
 
+  // A guest withdraws their request or gives up their spot. A decline stays on record so they can't re-request.
   app.post('/parties/:id/leave', requireUser, loadParty, (req, res) => {
-    db.prepare('DELETE FROM rsvps WHERE party_id = ? AND user_id = ?').run(req.party.id, req.user.id);
+    db.prepare(`DELETE FROM rsvps WHERE party_id = ? AND user_id = ? AND status != 'declined'`).run(req.party.id, req.user.id);
     res.redirect(`/parties/${req.party.id}`);
   });
 
-  app.post('/parties/:id/cancel', requireUser, loadParty, async (req, res) => {
+  function requireHost(req, res, next) {
+    if (req.party.host_id !== req.user.id) {
+      return res.status(403).render('message', { title: 'Not allowed', body: 'Only the host can do that.' });
+    }
+    next();
+  }
+
+  app.post('/parties/:id/guests/:userId/approve', requireUser, loadParty, requireHost, async (req, res) => {
     const party = req.party;
-    if (party.host_id !== req.user.id) return res.status(403).render('message', { title: 'Not allowed', body: 'Only the host can cancel a party.' });
-    const guests = db.prepare('SELECT u.name, u.email FROM rsvps r JOIN users u ON u.id = r.user_id WHERE r.party_id = ?').all(party.id);
+    const guestId = Number(req.params.userId);
+    // Only approve while there is room; one statement so the limit can't be overshot.
+    const info = db.prepare(
+      `UPDATE rsvps SET status = 'approved'
+       WHERE party_id = ? AND user_id = ? AND status = 'pending'
+         AND (SELECT COUNT(*) FROM rsvps WHERE party_id = ? AND status = 'approved') < ?`
+    ).run(party.id, guestId, party.id, party.capacity);
+    if (!info.changes) {
+      const still = db.prepare(`SELECT 1 FROM rsvps WHERE party_id = ? AND user_id = ? AND status = 'pending'`).get(party.id, guestId);
+      return res.redirect(`/parties/${party.id}${still ? '?full=1' : ''}`);
+    }
+    const guest = db.prepare('SELECT name, email FROM users WHERE id = ?').get(guestId);
+    await notify({
+      to: guest.email,
+      subject: `You’re in: ${party.album} at ${party.host_name}’s`,
+      text: `Hi ${guest.name},\n\n${party.host_name} has approved your spot at the ${party.album} listening party on ${fmtDate(party.starts_at)}.\n\nSign in to see the address: ${baseUrl}/parties/${party.id}`,
+    });
+    res.redirect(`/parties/${party.id}`);
+  });
+
+  // Declines a request, or removes a guest who was already approved.
+  app.post('/parties/:id/guests/:userId/decline', requireUser, loadParty, requireHost, async (req, res) => {
+    const party = req.party;
+    const guestId = Number(req.params.userId);
+    const info = db.prepare(
+      `UPDATE rsvps SET status = 'declined' WHERE party_id = ? AND user_id = ? AND status != 'declined'`
+    ).run(party.id, guestId);
+    if (info.changes) {
+      const guest = db.prepare('SELECT name, email FROM users WHERE id = ?').get(guestId);
+      await notify({
+        to: guest.email,
+        subject: `About the ${party.album} party at ${party.host_name}’s`,
+        text: `Hi ${guest.name},\n\nSorry, ${party.host_name} isn’t able to offer you a spot at the ${party.album} listening party on ${fmtDate(party.starts_at)}.\n\nThere are other parties to try: ${baseUrl}/`,
+      });
+    }
+    res.redirect(`/parties/${party.id}`);
+  });
+
+  app.post('/parties/:id/cancel', requireUser, loadParty, requireHost, async (req, res) => {
+    const party = req.party;
+    const guests = db.prepare(
+      `SELECT u.name, u.email FROM rsvps r JOIN users u ON u.id = r.user_id WHERE r.party_id = ? AND r.status != 'declined'`
+    ).all(party.id);
     db.prepare('DELETE FROM parties WHERE id = ?').run(party.id);
     // Let guests know so nobody turns up at a closed door.
     for (const g of guests) {
-      try {
-        await mailer.send({
-          to: g.email,
-          subject: `Cancelled: ${party.album} at ${party.host_name}’s`,
-          text: `Hi ${g.name},\n\n${party.host_name} has cancelled the ${party.album} listening party on ${fmtDate(party.starts_at)}.\n\nFind another one: ${baseUrl}/`,
-        });
-      } catch (err) {
-        console.error('Failed to send cancellation email:', err.message);
-      }
+      await notify({
+        to: g.email,
+        subject: `Cancelled: ${party.album} at ${party.host_name}’s`,
+        text: `Hi ${g.name},\n\n${party.host_name} has cancelled the ${party.album} listening party on ${fmtDate(party.starts_at)}.\n\nFind another one: ${baseUrl}/`,
+      });
     }
     res.redirect('/me');
   });
@@ -308,7 +371,9 @@ function createApp({ db, mailer, baseUrl, trustProxy = false }) {
   app.get('/me', requireUser, (req, res) => {
     const hosting = db.prepare(`${partySelect} WHERE p.host_id = ? ORDER BY p.starts_at DESC`).all(req.user.id);
     const attending = db.prepare(
-      `${partySelect} JOIN rsvps mine ON mine.party_id = p.id AND mine.user_id = ? ORDER BY p.starts_at DESC`
+      `${partySelect.replace(' FROM parties p', ', mine.status AS my_status FROM parties p')}
+       JOIN rsvps mine ON mine.party_id = p.id AND mine.user_id = ? AND mine.status != 'declined'
+       ORDER BY p.starts_at DESC`
     ).all(req.user.id);
     res.render('me', { title: 'My parties', hosting, attending });
   });

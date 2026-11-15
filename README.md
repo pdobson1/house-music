@@ -1,6 +1,6 @@
 # House Music
 
-Album listening parties in people's homes. A host picks one album, plays it on
+Album listening parties in people's homes in Lancaster, Lancashire. A host picks one album, plays it on
 repeat for the evening and serves a cocktail of their choice. Other members
 browse the calendar and sign up for a spot.
 
@@ -8,13 +8,15 @@ browse the calendar and sign up for a spot.
 
 - Sign up with name, email and password. Accounts must confirm their email
   (single-use link, valid 24 hours) before they can sign in, host or attend.
-- Host a party: album, artist, cocktail, date and time, neighbourhood, address,
+- Host a party: album, artist, cocktail, date and time, part of Lancaster, address,
   guest limit and notes.
-- Browse upcoming parties and sign up for one. Spots are limited to the host's
-  guest limit, and guests can give their spot back.
+- Browse upcoming parties and ask for a spot. The host is emailed and approves
+  or declines each request; the guest is emailed the outcome.
 - The street address and guest list are only visible to the host and to guests
-  who have signed up. Everyone else sees just the neighbourhood.
-- Hosts can cancel a party; everyone on the guest list is emailed.
+  the host has approved. Everyone else sees just the part of town.
+- Approved guests count towards the host's guest limit. Guests can give their
+  spot back, and hosts can remove a guest.
+- Hosts can cancel a party; everyone who asked to come is emailed.
 
 ## Run it
 

@@ -45,10 +45,15 @@ function openDb(file) {
     CREATE TABLE IF NOT EXISTS rsvps (
       party_id INTEGER NOT NULL REFERENCES parties(id) ON DELETE CASCADE,
       user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      status TEXT NOT NULL DEFAULT 'pending',   -- pending | approved | declined
       created_at TEXT NOT NULL DEFAULT (datetime('now')),
       PRIMARY KEY (party_id, user_id)
     );
   `);
+  // Databases created before host approval existed: existing guests keep their spots.
+  if (!db.prepare('PRAGMA table_info(rsvps)').all().some((c) => c.name === 'status')) {
+    db.exec("ALTER TABLE rsvps ADD COLUMN status TEXT NOT NULL DEFAULT 'approved'");
+  }
   return db;
 }
 

@@ -2,10 +2,10 @@
 <h1>My parties</h1>
 <h2>Hosting</h2>
 <% if (!hosting.length) { %><p class="empty">You’re not hosting anything yet. <a href="/parties/new">Host a party</a></p><% } else { %>
-  <div class="grid"><% for (const p of hosting) { %><%- include('partials/card', { p }) %><% } %></div>
+  <div class="grid"><% for (const p of hosting) { %><%- include('partials/card', { p, hosted: true }) %><% } %></div>
 <% } %>
 <h2>Attending</h2>
-<% if (!attending.length) { %><p class="empty">You haven’t signed up for any parties. <a href="/">Browse what’s on</a></p><% } else { %>
-  <div class="grid"><% for (const p of attending) { %><%- include('partials/card', { p }) %><% } %></div>
+<% if (!attending.length) { %><p class="empty">You haven’t asked for a spot at any parties. <a href="/">Browse what’s on</a></p><% } else { %>
+  <div class="grid"><% for (const p of attending) { %><%- include('partials/card', { p, mine: true }) %><% } %></div>
 <% } %>
 <%- include('partials/foot') %>

@@ -1,10 +1,10 @@
 <%- include('partials/head') %>
 <section class="hero">
   <h1>One house. One album. On repeat.</h1>
-  <p>Hosts pick a record, mix a cocktail and open their door for an evening. Find one near you, or host your own.</p>
+  <p>Listening parties in Lancaster. Hosts pick a record, mix a cocktail and open their door for an evening. Ask for a spot, or host your own.</p>
   <a class="btn" href="<%= user ? '/parties/new' : '/register' %>"><%= user ? 'Host a party' : 'Sign up to join in' %></a>
 </section>
-<h2>Upcoming listening parties</h2>
+<h2>Upcoming in Lancaster</h2>
 <% if (!parties.length) { %>
   <p class="empty">Nothing on the calendar yet. Be the first to put a record on.</p>
 <% } else { %>
