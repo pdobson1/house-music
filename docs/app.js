@@ -343,7 +343,12 @@
       actions = `
         <form class="book" data-form="ask" data-party="${p.id}">
           <h2>Choose your slots</h2>
+          <p class="lede">Come for one, two or all three. ${money(PRICE)} each.</p>
           ${errorBox(error)}
+          ${SLOTS.every((x) => left(p, x.id)) ? `
+          <label class="slot whole"><input type="checkbox" data-whole>
+            <span class="slot-name">The whole night<small>5pm, 8pm and 10pm</small></span>
+            <span class="slot-left">all three slots</span><span class="slot-price">${money(PRICE * SLOTS.length)}</span></label>` : ''}
           ${SLOTS.map((x) => { const n = left(p, x.id); return `
           <label class="slot${n ? '' : ' gone'}"><input type="checkbox" name="slot" value="${x.id}"${n ? '' : ' disabled'}>
             <span class="slot-name">${x.label}<small>${x.at}</small></span>
@@ -659,6 +664,10 @@
   document.addEventListener('change', (event) => {
     const book = event.target.closest('form[data-form="ask"]');
     if (book) {
+      const boxes = [...book.querySelectorAll('input[name="slot"]:not(:disabled)')];
+      const whole = book.querySelector('[data-whole]');
+      if (event.target === whole) boxes.forEach((box) => { box.checked = whole.checked; });
+      else if (whole) whole.checked = boxes.every((box) => box.checked);
       const n = book.querySelectorAll('input[name="slot"]:checked').length;
       book.querySelector('[data-total]').textContent = money(n * PRICE);
       return;

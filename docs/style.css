@@ -260,3 +260,6 @@ label.slot input { width: 18px; height: 18px; margin: 0; accent-color: var(--acc
 .bio-form { display: flex; gap: 12px; align-items: end; flex-wrap: wrap; max-width: 680px; margin: 8px 0 8px; }
 .bio-form label { flex: 1 1 320px; }
 .zero { color: #8fcfc6; }
+label.slot.whole { border-style: dashed; border-color: var(--brass); }
+label.slot.whole:has(input:checked) { border-style: solid; }
+.book .lede { margin: -4px 0 2px; }
