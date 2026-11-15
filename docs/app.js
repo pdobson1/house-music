@@ -5,7 +5,7 @@
 (function () {
   'use strict';
 
-  const KEY = 'house-music-demo-v8'; // bump when the sample data changes, so returning visitors see it
+  const KEY = 'house-music-demo-v9'; // bump when the sample data changes, so returning visitors see it
   const $ = (id) => document.getElementById(id);
 
   // ---------- Data ----------
@@ -46,7 +46,7 @@
         user(7, 'Gemma and Frank', 'Drum and bass couple. The speakers are bigger than the sofa.'),
         user(8, 'Paul', 'Lights low, volume up.'),
         user(9, 'Sophie', 'London jazz, loud. Makes a mean mezcal martini.'),
-        user(10, 'Tommack', 'Fan of cheap thrills, mushrooms and maths.'),
+        user(10, 'Tommack', 'a funghi-loving fun guy'),
       ],
       parties: [
         { id: 10, hostId: 1, album: 'Blue Lines', artist: 'Massive Attack', cocktail: 'Negroni', softDrink: 'Bitter orange spritz', startsAt: inDays(5, 17, 0), city: 'Bowerham', address: '12 Sample Street, Lancaster', capacity: 8, notes: 'Shoes off at the door. Vinyl copy, original pressing.' },
@@ -234,7 +234,7 @@
         ${errorBox(error)}
         <label>Your name <input name="name" value="${esc(values.name)}" maxlength="60" autocomplete="name" required></label>
         <label><span>A line about you <span class="opt">(optional)</span></span>
-          <input name="bio" value="${esc(values.bio)}" maxlength="140" placeholder="Fan of cheap thrills, mushrooms and maths.">
+          <input name="bio" value="${esc(values.bio)}" maxlength="140" placeholder="Northern soul on vinyl, and a good Manhattan.">
           <small>Other guests see this on parties you’re going to.</small></label>
         <label>Email <input type="email" name="email" value="${esc(values.email)}" autocomplete="email" required></label>
         <label>Password <input type="password" name="password" minlength="8" autocomplete="new-password" required>
@@ -444,7 +444,7 @@
       <h1>My parties</h1>
       <form class="bio-form" data-form="bio">
         <label><span>A line about you <span class="opt">(shown to other guests)</span></span>
-          <input name="bio" value="${esc(user.bio)}" maxlength="140" placeholder="Fan of cheap thrills, mushrooms and maths."></label>
+          <input name="bio" value="${esc(user.bio)}" maxlength="140" placeholder="Northern soul on vinyl, and a good Manhattan."></label>
         <button class="btn small">Save</button>
       </form>
       <h2>Hosting</h2>
