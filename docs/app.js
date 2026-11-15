@@ -91,12 +91,71 @@
     return h;
   }
 
+  // ---------- Album covers ----------
+  // Looked up from the public iTunes Search API by artist and album name, and
+  // loaded straight from Apple's image servers. The coloured sleeve stays as
+  // the fallback when there is no confident match or the lookup fails.
+
+  const COVERS_KEY = 'house-music-covers-v1';
+  let covers = {};
+  try { covers = JSON.parse(localStorage.getItem(COVERS_KEY)) || {}; } catch { /* no cache */ }
+  const lookups = new Set(); // keys being fetched right now
+
+  const norm = (text) => String(text).toLowerCase().normalize('NFKD').replace(/[^a-z0-9]+/g, ' ').trim();
+  const coverKey = (p) => `${norm(p.artist)}|${norm(p.album)}`;
+  const coverImg = (url, big) => `<img src="${esc(url.replace('100x100bb', big ? '600x600bb' : '200x200bb'))}" alt="" loading="lazy">`;
+
+  function sleeve(p, big) {
+    const url = covers[coverKey(p)];
+    return `<div class="sleeve${big ? ' big' : ''}" style="--h: ${hue(p.album + p.artist)}" aria-hidden="true"
+      data-cover="${esc(coverKey(p))}" data-artist="${esc(p.artist)}" data-album="${esc(p.album)}"><span class="disc"></span>${url ? coverImg(url, big) : ''}</div>`;
+  }
+
+  // Only accept a result for the same artist whose title is the album, or the album plus an edition suffix.
+  function pickCover(results, artist, album) {
+    const a = norm(artist), t = norm(album);
+    const same = results.filter((r) => r.artworkUrl100 && norm(r.artistName) === a);
+    const hit = same.find((r) => norm(r.collectionName) === t) || same.find((r) => norm(r.collectionName).startsWith(`${t} `));
+    return hit ? hit.artworkUrl100 : '';
+  }
+
+  async function findCover(key, artist, album) {
+    if (!norm(artist) || !norm(album) || lookups.has(key)) return;
+    lookups.add(key);
+    try {
+      const query = new URLSearchParams({ term: `${artist} ${album}`, entity: 'album', country: 'GB', limit: '25' });
+      const res = await fetch(`https://itunes.apple.com/search?${query}`);
+      if (!res.ok) return; // try again on a later visit
+      covers[key] = pickCover((await res.json()).results || [], artist, album);
+      try { localStorage.setItem(COVERS_KEY, JSON.stringify(covers)); } catch { /* fine */ }
+      if (!covers[key]) return;
+      for (const el of document.querySelectorAll('.sleeve[data-cover]')) {
+        if (el.dataset.cover === key && !el.querySelector('img')) {
+          el.insertAdjacentHTML('beforeend', coverImg(covers[key], el.classList.contains('big')));
+        }
+      }
+    } catch { /* offline or blocked: the coloured sleeve stays */ } finally {
+      lookups.delete(key);
+    }
+  }
+
+  function loadCovers() {
+    for (const el of document.querySelectorAll('.sleeve[data-cover]')) {
+      if (!(el.dataset.cover in covers)) findCover(el.dataset.cover, el.dataset.artist, el.dataset.album);
+    }
+  }
+
+  // A cover that fails to load is removed, revealing the coloured sleeve underneath.
+  document.addEventListener('error', (event) => {
+    if (event.target.matches && event.target.matches('.sleeve img')) event.target.remove();
+  }, true);
+
   function card(p, badge) {
     const going = count(p.id, 'approved');
     const full = going >= p.capacity;
     return `
       <a class="card" href="#/party/${p.id}">
-        <div class="sleeve" style="--h: ${hue(p.album + p.artist)}" aria-hidden="true"><span class="disc"></span></div>
+        ${sleeve(p, false)}
         <div class="card-body">
           <p class="when">${esc(fmtDate(p.startsAt))}</p>
           <h3>${esc(p.album)}</h3>
@@ -252,7 +311,7 @@
 
     return `
       <article class="party">
-        <div class="sleeve big" style="--h: ${hue(p.album + p.artist)}" aria-hidden="true"><span class="disc"></span></div>
+        ${sleeve(p, true)}
         <div>
           <p class="when">${esc(fmtDate(p.startsAt))}${past ? ' · finished' : ''}</p>
           <h1>${esc(p.album)}</h1>
@@ -324,6 +383,7 @@
     else html = panel('Not found', 'There’s nothing at this address.', { href: '#/', label: 'Browse parties' });
     $('main').innerHTML = (flash ? `<p class="notice" role="status">${esc(flash)}</p>` : '') + html;
     flash = null;
+    loadCovers();
   }
 
   function go(hash, message) {

@@ -125,3 +125,6 @@ details.confirm p { margin: 0; }
 .demo-bar label { display: flex; align-items: center; gap: 6px; font-weight: 600; font-size: .85rem; }
 .demo-bar select, .demo-bar button { font: .85rem system-ui, sans-serif; color: var(--text); background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; min-height: 36px; cursor: pointer; }
 nav button.link { min-height: 0; }
+
+/* Real album cover, laid over the generated sleeve */
+.sleeve img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; border-radius: inherit; display: block; }

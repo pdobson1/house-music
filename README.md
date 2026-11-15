@@ -47,6 +47,9 @@ It is a demo, not the product:
 - No emails are sent; confirming an email is a button.
 - A "Try as" menu switches between sample people so one person can see both
   the guest's and the host's side.
+- Album covers are looked up by artist and album name from Apple's public
+  iTunes Search API and loaded from Apple's servers. Albums it can't match
+  keep the generated coloured sleeve.
 - Nothing is private or secure. Don't enter real passwords or addresses.
 
 ## Put it online for free
