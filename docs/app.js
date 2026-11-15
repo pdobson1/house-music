@@ -5,7 +5,7 @@
 (function () {
   'use strict';
 
-  const KEY = 'house-music-demo-v5'; // bump when the sample data changes, so returning visitors see it
+  const KEY = 'house-music-demo-v6'; // bump when the sample data changes, so returning visitors see it
   const $ = (id) => document.getElementById(id);
 
   // ---------- Data ----------
@@ -19,6 +19,17 @@
     return localIso(d);
   }
 
+  // Every party runs three slots on its date. Guests can book one or more,
+  // and each slot has its own guest limit.
+  const PRICE = 10; // pounds per slot
+  const SLOTS = [
+    { id: 'happy', time: '17:00', label: 'Happy hour', at: '5pm' },
+    { id: 'early', time: '20:00', label: 'Early evening', at: '8pm' },
+    { id: 'late', time: '22:00', label: 'Late', at: '10pm' },
+  ];
+  const slotById = (id) => SLOTS.find((x) => x.id === id);
+  const money = (pounds) => `£${pounds}`;
+
   // Sample people and parties so the demo isn't empty. Dates are relative to today.
   function seed() {
     const user = (id, name) => ({ id, name, email: `${name.toLowerCase().replace(/[^a-z]+/g, '.')}@example.com`, pass: null, verified: true, sample: true });
@@ -27,26 +38,27 @@
       me: null,
       users: [user(1, 'Hattie'), user(2, 'Dev'), user(3, 'Priya'), user(4, 'Gus'), user(5, 'Lou'), user(6, 'Marta'), user(7, 'Gemma and Frank'), user(8, 'Paul'), user(9, 'Sophie')],
       parties: [
-        { id: 10, hostId: 1, album: 'Blue Lines', artist: 'Massive Attack', cocktail: 'Negroni', startsAt: inDays(5, 19, 30), city: 'Bowerham', address: '12 Sample Street, Lancaster', capacity: 8, notes: 'Shoes off at the door. Vinyl copy, original pressing.' },
-        { id: 13, hostId: 7, album: 'Timeless', artist: 'Goldie', cocktail: 'Whiskey Sour', startsAt: inDays(8, 20, 0), city: 'Freehold', address: '9 Demo Lane, Lancaster', capacity: 10, notes: 'Played loud, start to finish, all evening. Bring your dancing shoes.' },
-        { id: 11, hostId: 2, album: 'Kind of Blue', artist: 'Miles Davis', cocktail: 'Old Fashioned', startsAt: inDays(12, 20, 0), city: 'Scotforth', address: '4 Example Road, Lancaster', capacity: 6, notes: '' },
-        { id: 14, hostId: 8, album: 'Heaven or Las Vegas', artist: 'Cocteau Twins', cocktail: 'Flaming Dr Pepper', startsAt: inDays(15, 19, 30), city: 'Greaves', address: '3 Mock Avenue, Lancaster', capacity: 6, notes: 'Lights low, volume up.' },
-        { id: 12, hostId: 3, album: 'Discovery', artist: 'Daft Punk', cocktail: 'French 75', startsAt: inDays(19, 19, 0), city: 'Moorlands', address: '27 Placeholder Terrace, Lancaster', capacity: 2, notes: 'Small flat, so just the two spots.' },
-        { id: 15, hostId: 9, album: 'Your Queen Is a Reptile', artist: 'Sons of Kemet', cocktail: 'Mezcal Espresso Martini', startsAt: inDays(22, 20, 0), city: 'Skerton', address: '15 Trial Close, Lancaster', capacity: 8, notes: 'Saxophone, tuba and two drummers. Expect to move.' },
+        { id: 10, hostId: 1, album: 'Blue Lines', artist: 'Massive Attack', cocktail: 'Negroni', startsAt: inDays(5, 17, 0), city: 'Bowerham', address: '12 Sample Street, Lancaster', capacity: 8, notes: 'Shoes off at the door. Vinyl copy, original pressing.' },
+        { id: 13, hostId: 7, album: 'Timeless', artist: 'Goldie', cocktail: 'Whiskey Sour', startsAt: inDays(8, 17, 0), city: 'Freehold', address: '9 Demo Lane, Lancaster', capacity: 10, notes: 'Played loud, start to finish, all evening. Bring your dancing shoes.' },
+        { id: 11, hostId: 2, album: 'Kind of Blue', artist: 'Miles Davis', cocktail: 'Old Fashioned', startsAt: inDays(12, 17, 0), city: 'Scotforth', address: '4 Example Road, Lancaster', capacity: 6, notes: '' },
+        { id: 14, hostId: 8, album: 'Heaven or Las Vegas', artist: 'Cocteau Twins', cocktail: 'Flaming Dr Pepper', startsAt: inDays(15, 17, 0), city: 'Greaves', address: '3 Mock Avenue, Lancaster', capacity: 6, notes: 'Lights low, volume up.' },
+        { id: 12, hostId: 3, album: 'Discovery', artist: 'Daft Punk', cocktail: 'French 75', startsAt: inDays(19, 17, 0), city: 'Moorlands', address: '27 Placeholder Terrace, Lancaster', capacity: 2, notes: 'Small flat, so just the two spots.' },
+        { id: 15, hostId: 9, album: 'Your Queen Is a Reptile', artist: 'Sons of Kemet', cocktail: 'Mezcal Espresso Martini', startsAt: inDays(22, 17, 0), city: 'Skerton', address: '15 Trial Close, Lancaster', capacity: 8, notes: 'Saxophone, tuba and two drummers. Expect to move.' },
       ],
+      // status: pending (asked) -> approved (host said yes, payment due) -> paid (confirmed); or declined
       rsvps: [
-        { partyId: 10, userId: 4, status: 'approved' },
-        { partyId: 10, userId: 6, status: 'approved' },
-        { partyId: 10, userId: 5, status: 'pending' },
-        { partyId: 10, userId: 2, status: 'pending' },
-        { partyId: 13, userId: 3, status: 'approved' },
-        { partyId: 13, userId: 5, status: 'pending' },
-        { partyId: 14, userId: 1, status: 'approved' },
-        { partyId: 14, userId: 4, status: 'pending' },
-        { partyId: 12, userId: 4, status: 'approved' },
-        { partyId: 12, userId: 6, status: 'approved' },
-        { partyId: 15, userId: 8, status: 'approved' },
-        { partyId: 15, userId: 2, status: 'pending' },
+        { partyId: 10, userId: 4, slots: ['happy', 'early'], status: 'paid' },
+        { partyId: 10, userId: 6, slots: ['early'], status: 'paid' },
+        { partyId: 10, userId: 5, slots: ['late'], status: 'pending' },
+        { partyId: 10, userId: 2, slots: ['early', 'late'], status: 'pending' },
+        { partyId: 13, userId: 3, slots: ['early', 'late'], status: 'paid' },
+        { partyId: 13, userId: 5, slots: ['happy', 'early', 'late'], status: 'pending' },
+        { partyId: 14, userId: 1, slots: ['early'], status: 'paid' },
+        { partyId: 14, userId: 4, slots: ['late'], status: 'approved' },
+        { partyId: 12, userId: 4, slots: ['happy', 'early', 'late'], status: 'paid' },
+        { partyId: 12, userId: 6, slots: ['happy', 'early', 'late'], status: 'paid' },
+        { partyId: 15, userId: 8, slots: ['early', 'late'], status: 'paid' },
+        { partyId: 15, userId: 2, slots: ['happy'], status: 'pending' },
       ],
     };
   }
@@ -70,6 +82,13 @@
   const partyById = (id) => state.parties.find((p) => p.id === id);
   const rsvp = (partyId, userId) => state.rsvps.find((r) => r.partyId === partyId && r.userId === userId);
   const count = (partyId, status) => state.rsvps.filter((r) => r.partyId === partyId && r.status === status).length;
+  // Approved guests hold their spots while they pay.
+  const holds = (r) => r.status === 'approved' || r.status === 'paid';
+  const taken = (partyId, slot) => state.rsvps.filter((r) => r.partyId === partyId && holds(r) && r.slots.includes(slot)).length;
+  const left = (p, slot) => Math.max(0, p.capacity - taken(p.id, slot));
+  const isFull = (p) => SLOTS.every((x) => left(p, x.id) === 0);
+  const cost = (r) => r.slots.length * PRICE;
+  const slotNames = (slots) => SLOTS.filter((x) => slots.includes(x.id)).map((x) => `${x.label} (${x.at})`).join(', ');
   const isPast = (p) => p.startsAt < localIso(new Date(Date.now() - 24 * 60 * 60 * 1000));
 
   async function hashPassword(email, password) {
@@ -84,7 +103,7 @@
 
   function fmtDate(startsAt) {
     return new Intl.DateTimeFormat('en-GB', {
-      weekday: 'short', day: 'numeric', month: 'short', year: 'numeric', hour: 'numeric', minute: '2-digit', hour12: true, timeZone: 'UTC',
+      weekday: 'short', day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC',
     }).format(new Date(`${startsAt}:00Z`));
   }
 
@@ -154,8 +173,7 @@
   }, true);
 
   function card(p, badge) {
-    const going = count(p.id, 'approved');
-    const full = going >= p.capacity;
+    const full = isFull(p);
     return `
       <a class="card" href="#/party/${p.id}">
         ${sleeve(p, false)}
@@ -165,7 +183,8 @@
           <p class="artist">${esc(p.artist)}</p>
           <p class="meta">🍸 ${esc(p.cocktail)}</p>
           <p class="meta">${esc(p.city)} · hosted by ${esc(userById(p.hostId).name)}</p>
-          <p class="spots ${full ? 'full' : ''}">${full ? 'Full' : `${p.capacity - going} of ${p.capacity} spots left`}</p>
+          <p class="spots ${full ? 'full' : ''}">${full ? 'Sold out' : `${money(PRICE)} a slot`}</p>
+          <p class="slot-strip">${SLOTS.map((x) => { const n = left(p, x.id); return `<span class="${n ? '' : 'gone'}">${x.at} · ${n ? `${n} left` : 'full'}</span>`; }).join('')}</p>
           ${badge || ''}
         </div>
       </a>`;
@@ -188,7 +207,7 @@
     return `
       <section class="hero">
         <h1>One house. One album. On repeat.</h1>
-        <p>Listening parties in Lancaster. Hosts pick a record, mix a cocktail and open their door for an evening. Ask for a spot, or host your own.</p>
+        <p>Listening parties in Lancaster. Hosts pick a record, mix a cocktail and open their door for the night. Come for happy hour at 5, the early evening at 8 or late at 10, or stay for all three. ${money(PRICE)} a slot.</p>
         <a class="btn" href="${user ? '#/host' : '#/register'}">${user ? 'Host a party' : 'Sign up to join in'}</a>
       </section>
       <h2>Upcoming in Lancaster</h2>
@@ -237,7 +256,7 @@
     return `
       <form class="panel wide" data-form="party">
         <h1>Host a listening party</h1>
-        <p class="lede">Pick one album. It plays on repeat for the whole evening. You approve each guest before they see your address.</p>
+        <p class="lede">Pick one album. It plays on repeat through all three slots: happy hour at 5pm, early evening at 8pm and late at 10pm. Guests pay ${money(PRICE)} a slot once you’ve approved them, and only then see your address.</p>
         ${errorBox(error)}
         <div class="row">
           <label>Album <input name="album" value="${esc(v.album)}" maxlength="120" required></label>
@@ -245,12 +264,12 @@
         </div>
         <div class="row">
           <label>Cocktail you’ll serve <input name="cocktail" value="${esc(v.cocktail)}" maxlength="120" placeholder="Negroni" required></label>
-          <label>Date and time <input type="datetime-local" name="startsAt" value="${esc(v.startsAt)}" min="${localIso(new Date())}" required></label>
+          <label>Date <input type="date" name="date" value="${esc(v.date)}" min="${localIso(new Date()).slice(0, 10)}" required></label>
         </div>
         <div class="row">
           <label>Part of Lancaster <input name="city" value="${esc(v.city)}" maxlength="80" placeholder="Bowerham" required>
             <small>Shown to everyone.</small></label>
-          <label>Guest limit <input type="number" name="capacity" value="${esc(v.capacity)}" min="1" max="200" required></label>
+          <label>Guests per slot <input type="number" name="capacity" value="${esc(v.capacity)}" min="1" max="200" required></label>
         </div>
         <label>Address <input name="address" value="${esc(v.address)}" maxlength="200" required>
           <small>Only shown to guests you approve. This is a demo: use a made-up address.</small></label>
@@ -260,7 +279,7 @@
       </form>`;
   }
 
-  function partyPage(id) {
+  function partyPage(id, error) {
     const p = partyById(id);
     if (!p) return panel('Not found', 'That party doesn’t exist, or the host cancelled it.', { href: '#/', label: 'Browse parties' });
     const user = me();
@@ -268,12 +287,11 @@
     const isHost = Boolean(user && user.id === p.hostId);
     const mine = user && rsvp(p.id, user.id);
     const status = mine ? mine.status : null;
-    const insider = isHost || status === 'approved';
-    const going = count(p.id, 'approved');
+    const insider = isHost || status === 'paid';
     const past = isPast(p);
-    const people = (s) => state.rsvps.filter((r) => r.partyId === p.id && r.status === s).map((r) => userById(r.userId));
     const act = (action, label, cls, userId) =>
       `<button class="btn ${cls}" data-action="${action}" data-party="${p.id}"${userId ? ` data-user="${userId}"` : ''}>${label}</button>`;
+    const chips = (slots) => SLOTS.filter((x) => slots.includes(x.id)).map((x) => `<span class="chip">${x.at}</span>`).join('');
 
     let actions;
     if (isHost) {
@@ -281,35 +299,56 @@
         <p class="notice">You’re hosting this one.</p>
         <details class="confirm">
           <summary class="btn danger">Cancel party</summary>
-          <div><p>This removes the party. In the real app, everyone who asked to come is emailed.</p>
+          <div><p>This removes the party. In the real app, everyone who asked to come is emailed and anyone who paid is refunded.</p>
           ${act('cancel', 'Yes, cancel it', 'danger')}</div>
         </details>`;
+    } else if (status === 'paid') {
+      actions = `<p class="notice">You’re going: ${esc(slotNames(mine.slots))}. Paid ${money(cost(mine))}. See you there.</p>
+        <details class="confirm">
+          <summary class="btn ghost">Give up my spot</summary>
+          <div><p>Your ${money(cost(mine))} would be refunded. In this demo no money changes hands.</p>${act('leave', 'Yes, give it up', 'ghost')}</div>
+        </details>`;
     } else if (status === 'approved') {
-      actions = `<p class="notice">You’re on the list. See you there.</p>${act('leave', 'Give up my spot', 'ghost')}`;
+      actions = `<p class="notice">${esc(host.name)} said yes to ${esc(slotNames(mine.slots))}. Pay to confirm your place and see the address.</p>
+        <a class="btn" href="#/pay/${p.id}">Pay ${money(cost(mine))}</a> ${act('leave', 'Withdraw', 'ghost')}`;
     } else if (status === 'pending') {
-      actions = `<p class="notice">Request sent. ${esc(host.name)} will get back to you. To see the host’s side, choose ${esc(host.name)} in “Try as” at the top.</p>${act('leave', 'Withdraw request', 'ghost')}`;
+      actions = `<p class="notice">Request sent for ${esc(slotNames(mine.slots))}. ${esc(host.name)} will get back to you, and you pay once they’ve said yes. To see the host’s side, choose ${esc(host.name)} in “Try as” at the top.</p>${act('leave', 'Withdraw request', 'ghost')}`;
     } else if (status === 'declined') {
       actions = '<p class="notice">The host isn’t able to offer you a spot at this one.</p>';
     } else if (past) {
       actions = '<p class="notice">This party has already happened.</p>';
-    } else if (going >= p.capacity) {
-      actions = '<p class="notice">This party is full.</p>';
+    } else if (isFull(p)) {
+      actions = '<p class="notice">Every slot at this party is sold out.</p>';
     } else if (user) {
-      actions = `${act('ask', 'Ask for a spot', '')}<p><small>The host approves each guest.</small></p>`;
+      actions = `
+        <form class="book" data-form="ask" data-party="${p.id}">
+          <h2>Choose your slots</h2>
+          ${errorBox(error)}
+          ${SLOTS.map((x) => { const n = left(p, x.id); return `
+          <label class="slot${n ? '' : ' gone'}"><input type="checkbox" name="slot" value="${x.id}"${n ? '' : ' disabled'}>
+            <span class="slot-name">${x.label}<small>${x.at}</small></span>
+            <span class="slot-left">${n ? `${n} left` : 'Full'}</span><span class="slot-price">${money(PRICE)}</span></label>`; }).join('')}
+          <p class="total">Total <strong data-total>${money(0)}</strong></p>
+          <button class="btn">Ask for a spot</button>
+          <p><small>The host approves each guest. You only pay once they’ve said yes.</small></p>
+        </form>`;
     } else {
-      actions = '<a class="btn" href="#/login">Sign in to ask for a spot</a>';
+      actions = `<a class="btn" href="#/login">Sign in to book</a>`;
     }
 
     let lists = '';
     if (isHost) {
-      const requests = people('pending');
-      lists += `<h2>Requests waiting for you</h2>${requests.length ? `<ul class="people">${requests.map((g) => `
-        <li><span>${esc(g.name)}</span>${act('approve', 'Approve', 'small', g.id)}${act('decline', 'Decline', 'small ghost', g.id)}</li>`).join('')}</ul>` : '<p class="empty">No requests waiting.</p>'}`;
+      const requests = state.rsvps.filter((r) => r.partyId === p.id && r.status === 'pending');
+      lists += `<h2>Requests waiting for you</h2>${requests.length ? `<ul class="people">${requests.map((r) => `
+        <li><span>${esc(userById(r.userId).name)} ${chips(r.slots)}</span>${act('approve', 'Approve', 'small', r.userId)}${act('decline', 'Decline', 'small ghost', r.userId)}</li>`).join('')}</ul>` : '<p class="empty">No requests waiting.</p>'}`;
+      const sold = state.rsvps.filter((r) => r.partyId === p.id && r.status === 'paid');
+      const tickets = sold.reduce((n, r) => n + r.slots.length, 0);
+      lists += `<h2>Ticket sales</h2><p class="takings"><strong>${money(tickets * PRICE)}</strong> from ${tickets} ${tickets === 1 ? 'ticket' : 'tickets'}</p>`;
     }
     if (insider) {
-      const guests = people('approved');
-      lists += `<h2>Guest list</h2>${guests.length ? `<ul class="people">${guests.map((g) => `
-        <li><span>${esc(g.name)}</span>${isHost ? act('decline', 'Remove', 'small ghost', g.id) : ''}</li>`).join('')}</ul>` : '<p class="empty">Nobody is confirmed yet.</p>'}`;
+      const guests = state.rsvps.filter((r) => r.partyId === p.id && holds(r));
+      lists += `<h2>Guest list</h2>${guests.length ? `<ul class="people">${guests.map((r) => `
+        <li><span>${esc(userById(r.userId).name)} ${chips(r.slots)}${r.status === 'approved' ? ' <small>payment due</small>' : ''}</span>${isHost ? act('decline', 'Remove', 'small ghost', r.userId) : ''}</li>`).join('')}</ul>` : '<p class="empty">Nobody is confirmed yet.</p>'}`;
     }
 
     return `
@@ -318,19 +357,41 @@
         <div>
           <p class="when">${esc(fmtDate(p.startsAt))}${past ? ' · finished' : ''}</p>
           <h1>${esc(p.album)}</h1>
-          <p class="artist">${esc(p.artist)} · on repeat all evening</p>
+          <p class="artist">${esc(p.artist)} · on repeat all night</p>
           <dl>
             <dt>Cocktail</dt><dd>🍸 ${esc(p.cocktail)}</dd>
             <dt>Host</dt><dd>${esc(host.name)}</dd>
             <dt>Where</dt>
-            <dd>${esc(p.city)}<br>${insider ? `<strong>${esc(p.address)}</strong>` : '<small>The address is shared once the host approves you.</small>'}</dd>
-            <dt>Spots</dt><dd>${going} of ${p.capacity} taken</dd>
+            <dd>${esc(p.city)}<br>${insider ? `<strong>${esc(p.address)}</strong>` : '<small>The address is shared once you’ve been approved and paid.</small>'}</dd>
+            <dt>Tickets</dt><dd>${money(PRICE)} a slot, ${p.capacity} guests per slot</dd>
+            <dt>Slots</dt><dd>${SLOTS.map((x) => `${x.label}, ${x.at}: ${taken(p.id, x.id)} of ${p.capacity} taken`).join('<br>')}</dd>
           </dl>
           ${p.notes ? `<p class="notes">${esc(p.notes)}</p>` : ''}
           ${actions}
           ${lists}
         </div>
       </article>`;
+  }
+
+  // Pretend checkout. No card details are asked for and no money is taken.
+  function payPage(id) {
+    const p = partyById(id);
+    const user = me();
+    const r = p && user && rsvp(p.id, user.id);
+    if (!r || r.status !== 'approved') return partyPage(id);
+    return `
+      <section class="panel checkout">
+        <p class="when">Checkout</p>
+        <h1>${esc(p.album)}</h1>
+        <p class="lede">${esc(p.artist)} · ${esc(fmtDate(p.startsAt))} · hosted by ${esc(userById(p.hostId).name)}</p>
+        <table class="order">
+          ${SLOTS.filter((x) => r.slots.includes(x.id)).map((x) => `<tr><td>${x.label}, ${x.at}</td><td>${money(PRICE)}</td></tr>`).join('')}
+          <tr class="sum"><td>Total</td><td>${money(cost(r))}</td></tr>
+        </table>
+        <p class="dev">Demo: this is a pretend checkout. In the real app you’d pay by card here. Nothing is charged.</p>
+        <button class="btn" data-action="pay" data-party="${p.id}">Pay ${money(cost(r))}</button>
+        <p class="alt"><a href="#/party/${p.id}">Back to the party</a></p>
+      </section>`;
   }
 
   function mePage() {
@@ -351,7 +412,7 @@
       <h2>Hosting</h2>
       ${hosting.length ? `<div class="grid">${hosting.map((p) => card(p, waitingBadge(p))).join('')}</div>` : '<p class="empty">You’re not hosting anything yet. <a href="#/host">Host a party</a></p>'}
       <h2>Attending</h2>
-      ${attending.length ? `<div class="grid">${attending.map(({ p, status }) => card(p, `<p class="badge ${status}">${status === 'approved' ? 'You’re going' : 'Waiting for host'}</p>`)).join('')}</div>` : '<p class="empty">You haven’t asked for a spot at any parties. <a href="#/">Browse what’s on</a></p>'}`;
+      ${attending.length ? `<div class="grid">${attending.map(({ p, status }) => card(p, `<p class="badge ${status}">${{ paid: 'You’re going', approved: 'Approved: payment due', pending: 'Waiting for host' }[status]}</p>`)).join('')}</div>` : '<p class="empty">You haven’t asked for a spot at any parties. <a href="#/">Browse what’s on</a></p>'}`;
   }
 
   // ---------- Shell ----------
@@ -377,6 +438,7 @@
     let html;
     if (override) html = override;
     else if (parts[0] === 'party') html = partyPage(Number(parts[1]));
+    else if (parts[0] === 'pay') html = payPage(Number(parts[1]));
     else if (parts[0] === 'register') html = me() ? homePage() : registerPage();
     else if (parts[0] === 'check-email') html = checkEmailPage(Number(parts[1]));
     else if (parts[0] === 'login') html = me() ? homePage() : loginPage();
@@ -434,7 +496,7 @@
         album: clean(data.get('album'), 120),
         artist: clean(data.get('artist'), 120),
         cocktail: clean(data.get('cocktail'), 120),
-        startsAt: clean(data.get('startsAt'), 16),
+        date: clean(data.get('date'), 10),
         city: clean(data.get('city'), 80),
         address: clean(data.get('address'), 200),
         capacity: Number.parseInt(data.get('capacity'), 10),
@@ -443,17 +505,29 @@
       let error = null;
       if (!v.album || !v.artist) error = 'Which album are you playing, and who is it by?';
       else if (!v.cocktail) error = 'Pick the cocktail you’ll be serving.';
-      else if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(v.startsAt)) error = 'Choose a date and time.';
-      else if (v.startsAt < localIso(new Date())) error = 'That date is in the past.';
+      else if (!/^\d{4}-\d{2}-\d{2}$/.test(v.date)) error = 'Choose a date.';
+      else if (v.date < localIso(new Date()).slice(0, 10)) error = 'That date is in the past.';
       else if (!v.city) error = 'Add your part of Lancaster so guests know roughly where you are.';
       else if (!v.address) error = 'Add your address. Only guests you approve will see it.';
-      else if (!(v.capacity >= 1 && v.capacity <= 200)) error = 'Guest limit must be between 1 and 200.';
+      else if (!(v.capacity >= 1 && v.capacity <= 200)) error = 'Guests per slot must be between 1 and 200.';
       if (error) return render(hostPage(error, v));
-      const party = { id: state.nextId++, hostId: user.id, ...v };
+      const { date, ...rest } = v;
+      const party = { id: state.nextId++, hostId: user.id, ...rest, startsAt: `${date}T${SLOTS[0].time}` };
       state.parties.push(party);
       save();
       go(`#/party/${party.id}`, 'Your party is published.');
     },
+  };
+
+  forms.ask = function (data, form) {
+    const p = partyById(Number(form.dataset.party));
+    const user = me();
+    if (!p || !user || user.id === p.hostId || isPast(p) || rsvp(p.id, user.id)) return render();
+    const slots = SLOTS.map((x) => x.id).filter((id) => data.getAll('slot').includes(id) && left(p, id) > 0);
+    if (!slots.length) return render(partyPage(p.id, 'Pick at least one slot.'));
+    state.rsvps.push({ partyId: p.id, userId: user.id, slots, status: 'pending' });
+    save();
+    render();
   };
 
   const actions = {
@@ -475,14 +549,6 @@
       save();
       go('#/', 'Demo reset to the sample parties.');
     },
-    ask({ party }) {
-      const p = partyById(party);
-      const user = me();
-      if (!p || !user || user.id === p.hostId || isPast(p) || rsvp(p.id, user.id) || count(p.id, 'approved') >= p.capacity) return render();
-      state.rsvps.push({ partyId: p.id, userId: user.id, status: 'pending' });
-      save();
-      render();
-    },
     leave({ party }) {
       const user = me();
       if (!user) return render();
@@ -495,10 +561,20 @@
       const p = partyById(party);
       const r = rsvp(party, user);
       if (!p || !me() || me().id !== p.hostId || !r || r.status !== 'pending') return render();
-      if (count(p.id, 'approved') >= p.capacity) return go(location.hash, 'The party is full, so nobody else can be approved.');
+      const fullSlots = r.slots.filter((id) => left(p, id) === 0);
+      if (fullSlots.length) return go(location.hash, `${slotNames(fullSlots)} is full, so this request can’t be approved.`);
       r.status = 'approved';
       save();
-      go(location.hash, `${userById(user).name} is on the guest list. In the real app they get an email.`);
+      go(location.hash, `${userById(user).name} is approved. Their spots are held while they pay ${money(cost(r))}. In the real app they get an email with a payment link.`);
+    },
+    pay({ party }) {
+      const p = partyById(party);
+      const user = me();
+      const r = p && user && rsvp(party, user.id);
+      if (!r || r.status !== 'approved') return render();
+      r.status = 'paid';
+      save();
+      go(`#/party/${party}`, `Paid ${money(cost(r))}. You’re on the guest list. (Demo: nothing was charged.)`);
     },
     decline({ party, user }) {
       const p = partyById(party);
@@ -522,7 +598,7 @@
     const form = event.target.closest('form[data-form]');
     if (!form) return;
     event.preventDefault();
-    forms[form.dataset.form](new FormData(form));
+    forms[form.dataset.form](new FormData(form), form);
   });
 
   document.addEventListener('click', (event) => {
@@ -532,6 +608,12 @@
   });
 
   document.addEventListener('change', (event) => {
+    const book = event.target.closest('form[data-form="ask"]');
+    if (book) {
+      const n = book.querySelectorAll('input[name="slot"]:checked').length;
+      book.querySelector('[data-total]').textContent = money(n * PRICE);
+      return;
+    }
     if (event.target.id !== 'try-as') return;
     state.me = Number(event.target.value) || null;
     save();
