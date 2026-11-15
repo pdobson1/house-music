@@ -1,14 +1,8 @@
-const { DatabaseSync } = require('node:sqlite');
+const { createClient } = require('@libsql/client');
 const fs = require('node:fs');
 const path = require('node:path');
 
-function openDb(file) {
-  if (file !== ':memory:') fs.mkdirSync(path.dirname(path.resolve(file)), { recursive: true });
-  const db = new DatabaseSync(file);
-  db.exec(`
-    PRAGMA journal_mode = WAL;
-    PRAGMA foreign_keys = ON;
-
+const SCHEMA = `
     CREATE TABLE IF NOT EXISTS users (
       id INTEGER PRIMARY KEY,
       name TEXT NOT NULL,
@@ -49,10 +43,32 @@ function openDb(file) {
       created_at TEXT NOT NULL DEFAULT (datetime('now')),
       PRIMARY KEY (party_id, user_id)
     );
-  `);
+`;
+
+// Opens a local SQLite file (`file:./data/x.db`, or `:memory:`) or a hosted
+// libSQL/Turso database (`libsql://...` plus an auth token). Same SQL either way.
+async function openDb({ url, authToken }) {
+  const local = url === ':memory:' || url.startsWith('file:');
+  if (url.startsWith('file:')) fs.mkdirSync(path.dirname(path.resolve(url.slice(5))), { recursive: true });
+  const client = createClient({ url, authToken });
+  if (local) await client.execute('PRAGMA foreign_keys = ON');
+  await client.executeMultiple(SCHEMA);
+
+  const exec = (sql, args) => client.execute({ sql, args });
+  const db = {
+    get: async (sql, ...args) => (await exec(sql, args)).rows[0],
+    all: async (sql, ...args) => (await exec(sql, args)).rows,
+    run: async (sql, ...args) => {
+      const res = await exec(sql, args);
+      return { changes: res.rowsAffected, lastInsertRowid: Number(res.lastInsertRowid ?? 0) };
+    },
+    close: () => client.close(),
+  };
+
   // Databases created before host approval existed: existing guests keep their spots.
-  if (!db.prepare('PRAGMA table_info(rsvps)').all().some((c) => c.name === 'status')) {
-    db.exec("ALTER TABLE rsvps ADD COLUMN status TEXT NOT NULL DEFAULT 'approved'");
+  const columns = await db.all('PRAGMA table_info(rsvps)');
+  if (!columns.some((c) => c.name === 'status')) {
+    await db.run("ALTER TABLE rsvps ADD COLUMN status TEXT NOT NULL DEFAULT 'approved'");
   }
   return db;
 }

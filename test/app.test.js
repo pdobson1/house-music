@@ -5,7 +5,7 @@ const { createMailer } = require('../src/mail');
 const { createApp } = require('../src/app');
 
 async function start() {
-  const db = openDb(':memory:');
+  const db = await openDb({ url: ':memory:' });
   const mailer = createMailer({ smtpUrl: '', from: 'test@example.com', quiet: true });
   const server = createApp({ db, mailer, baseUrl: 'http://test.local' }).listen(0);
   await new Promise((r) => server.once('listening', r));
@@ -74,8 +74,8 @@ test('host approves guests before they see the address', async (t) => {
   const host = await signUp('Hattie', 'host@example.com');
   const guest = await signUp('Gus', 'gus@example.com');
   const late = await signUp('Lou', 'lou@example.com');
-  const id = (email) => db.prepare('SELECT id FROM users WHERE email = ?').get(email).id;
-  const [gus, lou] = [id('gus@example.com'), id('lou@example.com')];
+  const id = async (email) => (await db.get('SELECT id FROM users WHERE email = ?', email)).id;
+  const [gus, lou] = [await id('gus@example.com'), await id('lou@example.com')];
 
   assert.equal((await host('/parties', party({ starts_at: '2001-01-01T20:00' }))).status, 400);
   const created = await host('/parties', party());
@@ -142,7 +142,7 @@ test('host approves guests before they see the address', async (t) => {
   assert.deepEqual(mailer.outbox.slice(before).map((m) => m.to), ['gus@example.com']);
 });
 
-test('databases from before host approval keep their guests', () => {
+test('databases from before host approval keep their guests', async () => {
   const { DatabaseSync } = require('node:sqlite');
   const fs = require('node:fs'), os = require('node:os'), path = require('node:path');
   const file = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'hm-')), 'old.db');
@@ -151,8 +151,8 @@ test('databases from before host approval keep their guests', () => {
     created_at TEXT NOT NULL DEFAULT (datetime('now')), PRIMARY KEY (party_id, user_id));
     INSERT INTO rsvps (party_id, user_id) VALUES (1, 1);`);
   old.close();
-  const db = openDb(file);
-  assert.equal(db.prepare('SELECT status FROM rsvps').get().status, 'approved');
+  const db = await openDb({ url: `file:${file}` });
+  assert.equal((await db.get('SELECT status FROM rsvps')).status, 'approved');
   db.close();
 });
 
@@ -169,4 +169,21 @@ test('user input is escaped and cross-site posts are refused', async (t) => {
     method: 'POST', headers: { origin: 'https://evil.example' },
   });
   assert.equal(res.status, 403);
+});
+
+test('verification email goes through Brevo when a key is set', async (t) => {
+  const calls = [];
+  t.mock.method(globalThis, 'fetch', async (url, init) => {
+    calls.push({ url, init });
+    return new Response('{}', { status: 201 });
+  });
+  const mailer = createMailer({ brevoApiKey: 'key-123', from: 'House Music <hello@example.com>' });
+  assert.equal(mailer.live, true);
+  await mailer.send({ to: 'ana@example.com', subject: 'Hi', text: 'Body' });
+  assert.equal(calls[0].url, 'https://api.brevo.com/v3/smtp/email');
+  assert.equal(calls[0].init.headers['api-key'], 'key-123');
+  assert.deepEqual(JSON.parse(calls[0].init.body), {
+    sender: { name: 'House Music', email: 'hello@example.com' },
+    to: [{ email: 'ana@example.com' }], subject: 'Hi', textContent: 'Body',
+  });
 });

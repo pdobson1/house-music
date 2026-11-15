@@ -1,0 +1,25 @@
+# Render blueprint: creates the web service on the free plan.
+# The three values marked sync: false are asked for when you first deploy.
+services:
+  - type: web
+    name: house-music
+    runtime: node
+    plan: free
+    buildCommand: npm ci --omit=dev
+    startCommand: npm start
+    healthCheckPath: /healthz
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: NODE_VERSION
+        value: "22"
+      - key: TRUST_PROXY
+        value: "1"
+      - key: DATABASE_URL        # Turso database URL, starts with libsql://
+        sync: false
+      - key: DATABASE_AUTH_TOKEN # Turso database token
+        sync: false
+      - key: BREVO_API_KEY       # Brevo API key, for sending emails
+        sync: false
+      - key: MAIL_FROM           # e.g. House Music <you@yourdomain.co.uk>, a sender verified in Brevo
+        sync: false

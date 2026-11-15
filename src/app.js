@@ -41,14 +41,12 @@ function createApp({ db, mailer, baseUrl, trustProxy = false }) {
   });
 
   // Load the signed-in user, if any.
-  app.use((req, res, next) => {
+  app.use(async (req, res, next) => {
     const token = auth.readCookie(req, auth.SESSION_COOKIE);
     req.user = null;
     if (token) {
-      req.user = db.prepare(
-        `SELECT u.id, u.name, u.email FROM sessions s JOIN users u ON u.id = s.user_id
-         WHERE s.token_hash = ? AND s.expires > ?`
-      ).get(auth.hashToken(token), Date.now()) || null;
+      req.user = await db.get(`SELECT u.id, u.name, u.email FROM sessions s JOIN users u ON u.id = s.user_id
+         WHERE s.token_hash = ? AND s.expires > ?`, auth.hashToken(token), Date.now()) || null;
     }
     res.locals.user = req.user;
     res.locals.fmtDate = fmtDate;
@@ -82,8 +80,7 @@ function createApp({ db, mailer, baseUrl, trustProxy = false }) {
 
   async function sendVerification(user) {
     const token = auth.newToken();
-    db.prepare('UPDATE users SET verify_token_hash = ?, verify_expires = ? WHERE id = ?')
-      .run(auth.hashToken(token), Date.now() + auth.VERIFY_TTL_MS, user.id);
+    await db.run('UPDATE users SET verify_token_hash = ?, verify_expires = ? WHERE id = ?', auth.hashToken(token), Date.now() + auth.VERIFY_TTL_MS, user.id);
     const link = `${baseUrl}/verify?token=${token}`;
     await mailer.send({
       to: user.email,
@@ -101,10 +98,9 @@ function createApp({ db, mailer, baseUrl, trustProxy = false }) {
     }
   }
 
-  function startSession(res, userId) {
+  async function startSession(res, userId) {
     const token = auth.newToken();
-    db.prepare('INSERT INTO sessions (token_hash, user_id, expires) VALUES (?, ?, ?)')
-      .run(auth.hashToken(token), userId, Date.now() + auth.SESSION_TTL_MS);
+    await db.run('INSERT INTO sessions (token_hash, user_id, expires) VALUES (?, ?, ?)', auth.hashToken(token), userId, Date.now() + auth.SESSION_TTL_MS);
     res.cookie(auth.SESSION_COOKIE, token, {
       httpOnly: true, sameSite: 'lax', secure: secureCookies, maxAge: auth.SESSION_TTL_MS, path: '/',
     });
@@ -116,10 +112,13 @@ function createApp({ db, mailer, baseUrl, trustProxy = false }) {
            (SELECT COUNT(*) FROM rsvps r WHERE r.party_id = p.id AND r.status = 'pending') AS waiting
     FROM parties p JOIN users u ON u.id = p.host_id`;
 
+  // Used by the host to check the app is up.
+  app.get('/healthz', (req, res) => res.type('text').send('ok'));
+
   // ---------- Browse ----------
 
-  app.get('/', (req, res) => {
-    const parties = db.prepare(`${partySelect} WHERE p.starts_at >= ? ORDER BY p.starts_at LIMIT 200`).all(cutoff());
+  app.get('/', async (req, res) => {
+    const parties = await db.all(`${partySelect} WHERE p.starts_at >= ? ORDER BY p.starts_at LIMIT 200`, cutoff());
     res.render('home', { title: 'Listening parties', parties });
   });
 
@@ -144,10 +143,9 @@ function createApp({ db, mailer, baseUrl, trustProxy = false }) {
     // Same response whether or not the address is already registered, so
     // the form can't be used to find out who has an account.
     let devLink = null;
-    const existing = db.prepare('SELECT * FROM users WHERE email = ?').get(email);
+    const existing = await db.get('SELECT * FROM users WHERE email = ?', email);
     if (!existing) {
-      const info = db.prepare('INSERT INTO users (name, email, password_hash) VALUES (?, ?, ?)')
-        .run(name, email, await auth.hashPassword(password));
+      const info = await db.run('INSERT INTO users (name, email, password_hash) VALUES (?, ?, ?)', name, email, await auth.hashPassword(password));
       devLink = await sendVerification({ id: info.lastInsertRowid, name, email });
     } else if (!existing.verified_at) {
       devLink = await sendVerification(existing);
@@ -161,10 +159,9 @@ function createApp({ db, mailer, baseUrl, trustProxy = false }) {
     res.render('check-email', { title: 'Check your email', email, devLink: showDevLinks ? devLink : null });
   });
 
-  app.get('/verify', (req, res) => {
+  app.get('/verify', async (req, res) => {
     const token = String(req.query.token || '');
-    const user = token && db.prepare('SELECT * FROM users WHERE verify_token_hash = ? AND verify_expires > ?')
-      .get(auth.hashToken(token), Date.now());
+    const user = token && await db.get('SELECT * FROM users WHERE verify_token_hash = ? AND verify_expires > ?', auth.hashToken(token), Date.now());
     if (!user) {
       return res.status(400).render('message', {
         title: 'Link expired',
@@ -172,9 +169,8 @@ function createApp({ db, mailer, baseUrl, trustProxy = false }) {
         action: { href: '/login', label: 'Sign in' },
       });
     }
-    db.prepare(`UPDATE users SET verified_at = datetime('now'), verify_token_hash = NULL, verify_expires = NULL WHERE id = ?`)
-      .run(user.id);
-    startSession(res, user.id);
+    await db.run(`UPDATE users SET verified_at = datetime('now'), verify_token_hash = NULL, verify_expires = NULL WHERE id = ?`, user.id);
+    await startSession(res, user.id);
     res.locals.user = user;
     res.render('message', {
       title: 'Email confirmed',
@@ -192,7 +188,7 @@ function createApp({ db, mailer, baseUrl, trustProxy = false }) {
     const email = clean(req.body.email, 254).toLowerCase();
     const password = String(req.body.password || '');
     const next = safeNext(req.body.next);
-    const user = db.prepare('SELECT * FROM users WHERE email = ?').get(email);
+    const user = await db.get('SELECT * FROM users WHERE email = ?', email);
     const ok = user && password.length <= 200 && await auth.verifyPassword(password, user.password_hash);
     if (!ok) {
       return res.status(401).render('login', {
@@ -206,13 +202,13 @@ function createApp({ db, mailer, baseUrl, trustProxy = false }) {
         title: 'Sign in', error: null, unverified: email, devLink: showDevLinks ? link : null, email, next,
       });
     }
-    startSession(res, user.id);
+    await startSession(res, user.id);
     res.redirect(next);
   });
 
-  app.post('/logout', (req, res) => {
+  app.post('/logout', async (req, res) => {
     const token = auth.readCookie(req, auth.SESSION_COOKIE);
-    if (token) db.prepare('DELETE FROM sessions WHERE token_hash = ?').run(auth.hashToken(token));
+    if (token) await db.run('DELETE FROM sessions WHERE token_hash = ?', auth.hashToken(token));
     res.clearCookie(auth.SESSION_COOKIE, { path: '/' });
     res.redirect('/');
   });
@@ -223,7 +219,7 @@ function createApp({ db, mailer, baseUrl, trustProxy = false }) {
     res.render('party-form', { title: 'Host a party', error: null, values: { capacity: 8 }, minDate: cutoff() });
   });
 
-  app.post('/parties', requireUser, (req, res) => {
+  app.post('/parties', requireUser, async (req, res) => {
     const v = {
       album: clean(req.body.album, 120),
       artist: clean(req.body.artist, 120),
@@ -244,37 +240,33 @@ function createApp({ db, mailer, baseUrl, trustProxy = false }) {
     else if (!(v.capacity >= 1 && v.capacity <= 200)) error = 'Guest limit must be between 1 and 200.';
     if (error) return res.status(400).render('party-form', { title: 'Host a party', error, values: v, minDate: cutoff() });
 
-    const info = db.prepare(
-      `INSERT INTO parties (host_id, album, artist, cocktail, starts_at, city, address, capacity, notes)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
-    ).run(req.user.id, v.album, v.artist, v.cocktail, v.starts_at, v.city, v.address, v.capacity, v.notes);
+    const info = await db.run(`INSERT INTO parties (host_id, album, artist, cocktail, starts_at, city, address, capacity, notes)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`, req.user.id, v.album, v.artist, v.cocktail, v.starts_at, v.city, v.address, v.capacity, v.notes);
     res.redirect(`/parties/${info.lastInsertRowid}`);
   });
 
-  function loadParty(req, res, next) {
+  async function loadParty(req, res, next) {
     const id = Number(req.params.id);
-    const party = Number.isInteger(id) ? db.prepare(`${partySelect} WHERE p.id = ?`).get(id) : null;
+    const party = Number.isInteger(id) ? await db.get(`${partySelect} WHERE p.id = ?`, id) : null;
     if (!party) return res.status(404).render('message', { title: 'Not found', body: 'That party doesn’t exist, or the host cancelled it.', action: { href: '/', label: 'Browse parties' } });
     req.party = party;
     next();
   }
 
-  app.get('/parties/:id', loadParty, (req, res) => {
+  app.get('/parties/:id', loadParty, async (req, res) => {
     const party = req.party;
     const isHost = Boolean(req.user && req.user.id === party.host_id);
-    const mine = req.user && db.prepare('SELECT status FROM rsvps WHERE party_id = ? AND user_id = ?').get(party.id, req.user.id);
+    const mine = req.user && await db.get('SELECT status FROM rsvps WHERE party_id = ? AND user_id = ?', party.id, req.user.id);
     const myStatus = mine ? mine.status : null;
     // The street address and the guest list are private to the host and guests the host has approved.
     const insider = isHost || myStatus === 'approved';
-    const people = (status) => db.prepare(
-      'SELECT u.id, u.name FROM rsvps r JOIN users u ON u.id = r.user_id WHERE r.party_id = ? AND r.status = ? ORDER BY r.created_at'
-    ).all(party.id, status);
+    const people = (status) => db.all('SELECT u.id, u.name FROM rsvps r JOIN users u ON u.id = r.user_id WHERE r.party_id = ? AND r.status = ? ORDER BY r.created_at', party.id, status);
     res.render('party', {
       title: `${party.album} at ${party.host_name}’s`,
       party: { ...party, address: insider ? party.address : null },
       isHost, myStatus,
-      guests: insider ? people('approved') : [],
-      requests: isHost ? people('pending') : [],
+      guests: insider ? await people('approved') : [],
+      requests: isHost ? await people('pending') : [],
       past: party.starts_at < cutoff(),
       error: req.query.full ? 'The party is full, so nobody else can be approved.' : null,
     });
@@ -285,10 +277,10 @@ function createApp({ db, mailer, baseUrl, trustProxy = false }) {
     const party = req.party;
     const open = party.host_id !== req.user.id && party.starts_at >= cutoff() && party.going < party.capacity;
     const info = open
-      ? db.prepare(`INSERT OR IGNORE INTO rsvps (party_id, user_id, status) VALUES (?, ?, 'pending')`).run(party.id, req.user.id)
+      ? await db.run(`INSERT OR IGNORE INTO rsvps (party_id, user_id, status) VALUES (?, ?, 'pending')`, party.id, req.user.id)
       : { changes: 0 };
     if (info.changes) {
-      const host = db.prepare('SELECT name, email FROM users WHERE id = ?').get(party.host_id);
+      const host = await db.get('SELECT name, email FROM users WHERE id = ?', party.host_id);
       await notify({
         to: host.email,
         subject: `${req.user.name} wants to come to your ${party.album} party`,
@@ -299,8 +291,8 @@ function createApp({ db, mailer, baseUrl, trustProxy = false }) {
   });
 
   // A guest withdraws their request or gives up their spot. A decline stays on record so they can't re-request.
-  app.post('/parties/:id/leave', requireUser, loadParty, (req, res) => {
-    db.prepare(`DELETE FROM rsvps WHERE party_id = ? AND user_id = ? AND status != 'declined'`).run(req.party.id, req.user.id);
+  app.post('/parties/:id/leave', requireUser, loadParty, async (req, res) => {
+    await db.run(`DELETE FROM rsvps WHERE party_id = ? AND user_id = ? AND status != 'declined'`, req.party.id, req.user.id);
     res.redirect(`/parties/${req.party.id}`);
   });
 
@@ -315,16 +307,14 @@ function createApp({ db, mailer, baseUrl, trustProxy = false }) {
     const party = req.party;
     const guestId = Number(req.params.userId);
     // Only approve while there is room; one statement so the limit can't be overshot.
-    const info = db.prepare(
-      `UPDATE rsvps SET status = 'approved'
+    const info = await db.run(`UPDATE rsvps SET status = 'approved'
        WHERE party_id = ? AND user_id = ? AND status = 'pending'
-         AND (SELECT COUNT(*) FROM rsvps WHERE party_id = ? AND status = 'approved') < ?`
-    ).run(party.id, guestId, party.id, party.capacity);
+         AND (SELECT COUNT(*) FROM rsvps WHERE party_id = ? AND status = 'approved') < ?`, party.id, guestId, party.id, party.capacity);
     if (!info.changes) {
-      const still = db.prepare(`SELECT 1 FROM rsvps WHERE party_id = ? AND user_id = ? AND status = 'pending'`).get(party.id, guestId);
+      const still = await db.get(`SELECT 1 FROM rsvps WHERE party_id = ? AND user_id = ? AND status = 'pending'`, party.id, guestId);
       return res.redirect(`/parties/${party.id}${still ? '?full=1' : ''}`);
     }
-    const guest = db.prepare('SELECT name, email FROM users WHERE id = ?').get(guestId);
+    const guest = await db.get('SELECT name, email FROM users WHERE id = ?', guestId);
     await notify({
       to: guest.email,
       subject: `You’re in: ${party.album} at ${party.host_name}’s`,
@@ -337,11 +327,9 @@ function createApp({ db, mailer, baseUrl, trustProxy = false }) {
   app.post('/parties/:id/guests/:userId/decline', requireUser, loadParty, requireHost, async (req, res) => {
     const party = req.party;
     const guestId = Number(req.params.userId);
-    const info = db.prepare(
-      `UPDATE rsvps SET status = 'declined' WHERE party_id = ? AND user_id = ? AND status != 'declined'`
-    ).run(party.id, guestId);
+    const info = await db.run(`UPDATE rsvps SET status = 'declined' WHERE party_id = ? AND user_id = ? AND status != 'declined'`, party.id, guestId);
     if (info.changes) {
-      const guest = db.prepare('SELECT name, email FROM users WHERE id = ?').get(guestId);
+      const guest = await db.get('SELECT name, email FROM users WHERE id = ?', guestId);
       await notify({
         to: guest.email,
         subject: `About the ${party.album} party at ${party.host_name}’s`,
@@ -353,10 +341,9 @@ function createApp({ db, mailer, baseUrl, trustProxy = false }) {
 
   app.post('/parties/:id/cancel', requireUser, loadParty, requireHost, async (req, res) => {
     const party = req.party;
-    const guests = db.prepare(
-      `SELECT u.name, u.email FROM rsvps r JOIN users u ON u.id = r.user_id WHERE r.party_id = ? AND r.status != 'declined'`
-    ).all(party.id);
-    db.prepare('DELETE FROM parties WHERE id = ?').run(party.id);
+    const guests = await db.all(`SELECT u.name, u.email FROM rsvps r JOIN users u ON u.id = r.user_id WHERE r.party_id = ? AND r.status != 'declined'`, party.id);
+    await db.run('DELETE FROM rsvps WHERE party_id = ?', party.id);
+    await db.run('DELETE FROM parties WHERE id = ?', party.id);
     // Let guests know so nobody turns up at a closed door.
     for (const g of guests) {
       await notify({
@@ -368,13 +355,11 @@ function createApp({ db, mailer, baseUrl, trustProxy = false }) {
     res.redirect('/me');
   });
 
-  app.get('/me', requireUser, (req, res) => {
-    const hosting = db.prepare(`${partySelect} WHERE p.host_id = ? ORDER BY p.starts_at DESC`).all(req.user.id);
-    const attending = db.prepare(
-      `${partySelect.replace(' FROM parties p', ', mine.status AS my_status FROM parties p')}
+  app.get('/me', requireUser, async (req, res) => {
+    const hosting = await db.all(`${partySelect} WHERE p.host_id = ? ORDER BY p.starts_at DESC`, req.user.id);
+    const attending = await db.all(`${partySelect.replace(' FROM parties p', ', mine.status AS my_status FROM parties p')}
        JOIN rsvps mine ON mine.party_id = p.id AND mine.user_id = ? AND mine.status != 'declined'
-       ORDER BY p.starts_at DESC`
-    ).all(req.user.id);
+       ORDER BY p.starts_at DESC`, req.user.id);
     res.render('me', { title: 'My parties', hosting, attending });
   });
 

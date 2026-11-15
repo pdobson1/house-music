@@ -28,26 +28,48 @@ npm start          # http://localhost:3000
 npm test
 ```
 
-With no `SMTP_URL` set, no email is sent: the confirmation link is printed in
+With no email provider set, no email is sent: the confirmation link is printed in
 the server console and shown on screen so you can try the whole flow locally.
+
+## Put it online for free
+
+The app is set up for Render (web hosting), Turso (database) and Brevo
+(email), all on their free plans. You need an account with each.
+
+1. **Turso** (turso.tech): create a database. Copy its URL (starts with
+   `libsql://`) and create a database token.
+2. **Brevo** (brevo.com): add and verify the sender address your emails will
+   come from, then create an API key.
+3. **Render** (render.com): New > Blueprint, connect this GitHub repository.
+   Render reads `render.yaml` and asks for four values:
+   `DATABASE_URL`, `DATABASE_AUTH_TOKEN`, `BREVO_API_KEY` and `MAIL_FROM`
+   (for example `House Music <you@yourdomain.co.uk>`).
+4. Deploy. The site is live at the `onrender.com` address Render gives you.
+   The tables are created on first start.
+
+On the free plan the site sleeps when nobody has visited for a while, so the
+first visit after a quiet spell takes up to a minute.
 
 ## Configuration
 
-Copy `.env.example` to `.env`. For a real deployment set:
+Local development needs no configuration. See `.env.example` for the full list.
 
 | Variable | Purpose |
 | --- | --- |
-| `BASE_URL` | Public `https://` URL, used in email links and to mark cookies secure |
-| `SMTP_URL` | SMTP connection string for your mail provider (required when `NODE_ENV=production`) |
+| `DATABASE_URL`, `DATABASE_AUTH_TOKEN` | Hosted Turso/libSQL database. Without them a local file at `DB_PATH` is used |
+| `BREVO_API_KEY` | Sends email through Brevo. `SMTP_URL` is the alternative for any SMTP provider |
 | `MAIL_FROM` | From address for emails |
-| `DB_PATH` | SQLite file location; put it on a persistent disk |
+| `BASE_URL` | Public `https://` URL used in email links. Set automatically on Render |
 | `TRUST_PROXY` | Set to `1` behind a reverse proxy |
+
+One of `BREVO_API_KEY` or `SMTP_URL` is required when `NODE_ENV=production`.
 
 ## Layout
 
 - `server.js` – entry point and configuration
 - `src/app.js` – routes
 - `src/auth.js` – password hashing, tokens, cookies
-- `src/db.js` – SQLite schema
+- `src/db.js` – database schema and connection
 - `src/mail.js` – email sending
 - `views/`, `public/` – pages and styles
+- `render.yaml` – Render deployment blueprint
