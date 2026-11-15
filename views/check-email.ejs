@@ -1,0 +1,7 @@
+<%- include('partials/head') %>
+<section class="panel">
+  <h1>Check your email</h1>
+  <p>We’ve sent a confirmation link to <strong><%= email %></strong>. Click it to finish signing up. The link lasts 24 hours.</p>
+  <% if (devLink) { %><p class="dev">Dev mode, no email is being sent: <a href="<%= devLink %>">confirm now</a></p><% } %>
+</section>
+<%- include('partials/foot') %>

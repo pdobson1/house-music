@@ -1,0 +1,51 @@
+<%- include('partials/head') %>
+<article class="party">
+  <div class="sleeve big" style="--h: <%= hue(party.album + party.artist) %>" aria-hidden="true"><span class="disc"></span></div>
+  <div>
+    <p class="when"><%= fmtDate(party.starts_at) %><% if (past) { %> · finished<% } %></p>
+    <h1><%= party.album %></h1>
+    <p class="artist"><%= party.artist %> · on repeat all evening</p>
+    <% if (error) { %><p class="error" role="alert"><%= error %></p><% } %>
+    <dl>
+      <dt>Cocktail</dt><dd>🍸 <%= party.cocktail %></dd>
+      <dt>Host</dt><dd><%= party.host_name %></dd>
+      <dt>Where</dt>
+      <dd><%= party.city %>
+        <% if (party.address) { %><br><strong><%= party.address %></strong>
+        <% } else { %><br><small>The address is shared once you sign up.</small><% } %>
+      </dd>
+      <dt>Spots</dt><dd><%= party.going %> of <%= party.capacity %> taken</dd>
+    </dl>
+    <% if (party.notes) { %><p class="notes"><%= party.notes %></p><% } %>
+
+    <% if (isHost) { %>
+      <p class="notice">You’re hosting this one.</p>
+      <details class="confirm">
+        <summary class="btn danger">Cancel party</summary>
+        <form method="post" action="/parties/<%= party.id %>/cancel">
+          <p>This removes the party and emails everyone on the guest list.</p>
+          <button class="btn danger">Yes, cancel it</button>
+        </form>
+      </details>
+    <% } else if (isGoing) { %>
+      <p class="notice">You’re on the list. See you there.</p>
+      <form method="post" action="/parties/<%= party.id %>/leave"><button class="btn ghost">Give up my spot</button></form>
+    <% } else if (past) { %>
+      <p class="notice">This party has already happened.</p>
+    <% } else if (party.going >= party.capacity) { %>
+      <p class="notice">This party is full.</p>
+    <% } else if (user) { %>
+      <form method="post" action="/parties/<%= party.id %>/rsvp"><button class="btn">Sign me up</button></form>
+    <% } else { %>
+      <a class="btn" href="/login?next=/parties/<%= party.id %>">Sign in to attend</a>
+    <% } %>
+
+    <% if (isHost || isGoing) { %>
+      <h2>Guest list</h2>
+      <% if (!guests.length) { %><p class="empty">Nobody has signed up yet.</p><% } else { %>
+        <ul class="guests"><% for (const g of guests) { %><li><%= g.name %></li><% } %></ul>
+      <% } %>
+    <% } %>
+  </div>
+</article>
+<%- include('partials/foot') %>

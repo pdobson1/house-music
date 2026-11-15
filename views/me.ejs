@@ -1,0 +1,11 @@
+<%- include('partials/head') %>
+<h1>My parties</h1>
+<h2>Hosting</h2>
+<% if (!hosting.length) { %><p class="empty">You’re not hosting anything yet. <a href="/parties/new">Host a party</a></p><% } else { %>
+  <div class="grid"><% for (const p of hosting) { %><%- include('partials/card', { p }) %><% } %></div>
+<% } %>
+<h2>Attending</h2>
+<% if (!attending.length) { %><p class="empty">You haven’t signed up for any parties. <a href="/">Browse what’s on</a></p><% } else { %>
+  <div class="grid"><% for (const p of attending) { %><%- include('partials/card', { p }) %><% } %></div>
+<% } %>
+<%- include('partials/foot') %>

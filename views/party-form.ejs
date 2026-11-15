@@ -1,0 +1,25 @@
+<%- include('partials/head') %>
+<form class="panel wide" method="post" action="/parties">
+  <h1>Host a listening party</h1>
+  <p class="lede">Pick one album. It plays on repeat for the whole evening.</p>
+  <% if (error) { %><p class="error" role="alert"><%= error %></p><% } %>
+  <div class="row">
+    <label>Album <input name="album" value="<%= values.album || '' %>" maxlength="120" required></label>
+    <label>Artist <input name="artist" value="<%= values.artist || '' %>" maxlength="120" required></label>
+  </div>
+  <div class="row">
+    <label>Cocktail you’ll serve <input name="cocktail" value="<%= values.cocktail || '' %>" maxlength="120" placeholder="Negroni" required></label>
+    <label>Date and time <input type="datetime-local" name="starts_at" value="<%= values.starts_at || '' %>" min="<%= minDate %>" required></label>
+  </div>
+  <div class="row">
+    <label>Neighbourhood or city <input name="city" value="<%= values.city || '' %>" maxlength="80" required>
+      <small>Shown to everyone.</small></label>
+    <label>Guest limit <input type="number" name="capacity" value="<%= values.capacity || '' %>" min="1" max="200" required></label>
+  </div>
+  <label>Address <input name="address" value="<%= values.address || '' %>" maxlength="200" autocomplete="street-address" required>
+    <small>Only shown to guests who sign up for your party.</small></label>
+  <label><span>Anything guests should know <span class="opt">(optional)</span></span>
+    <textarea name="notes" rows="3" maxlength="1000"><%= values.notes || '' %></textarea></label>
+  <button class="btn">Publish party</button>
+</form>
+<%- include('partials/foot') %>

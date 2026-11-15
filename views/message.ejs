@@ -1,0 +1,7 @@
+<%- include('partials/head') %>
+<section class="panel">
+  <h1><%= title %></h1>
+  <p><%= body %></p>
+  <% if (locals.action) { %><a class="btn" href="<%= action.href %>"><%= action.label %></a><% } %>
+</section>
+<%- include('partials/foot') %>
