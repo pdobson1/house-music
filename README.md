@@ -47,10 +47,12 @@ It is a demo, not the product:
 - No emails are sent; confirming an email is a button.
 - Every party lists an alcohol-free drink alongside the cocktail, and guests
   can see who else is attending, with a line about each of them.
-- It tries out paid tickets: every party has three slots (happy hour 5pm,
-  early evening 8pm, late 10pm) at £10 each. Guests pick one or more, the host
-  approves, then the guest pays at a pretend checkout. No money is taken, and
-  the real app doesn't have tickets yet.
+- It tries out paid tickets, at £15 a slot. A night has three slots (happy
+  hour 5pm, early evening 8pm, late 10pm) and each house opens for one or
+  more of them, so guests can stay put or hop between houses: "Plan your
+  night" picks one house per slot. Each host approves, then the guest pays at
+  a pretend checkout. No money is taken, and the real app doesn't have
+  tickets yet.
 - A "Try as" menu switches between sample people so one person can see both
   the guest's and the host's side.
 - Album covers are looked up by artist and album name from Apple's public
