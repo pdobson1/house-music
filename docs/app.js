@@ -5,7 +5,7 @@
 (function () {
   'use strict';
 
-  const KEY = 'house-music-demo-v11'; // bump when the sample data changes, so returning visitors see it
+  const KEY = 'house-music-demo-v12'; // bump when the sample data changes, so returning visitors see it
   const $ = (id) => document.getElementById(id);
 
   // ---------- Data ----------
@@ -56,6 +56,7 @@
         user(8, 'Paul', 'Lights low, volume up.'),
         user(9, 'Sophie', 'London jazz, loud. Makes a mean mezcal martini.'),
         user(10, 'Tommack', 'a funghi-loving fun guy'),
+        user(11, 'Kriss', 'Keeps it simple: a loud record and a cold pint.'),
       ],
       parties: [
         { id: 10, hostId: 1, album: 'Blue Lines', artist: 'Massive Attack', cocktail: 'Negroni', softDrink: 'Bitter orange spritz', slots: ['happy', 'early'], startsAt: night(a, 'happy'), city: 'Bowerham', address: '12 Sample Street, Lancaster', capacity: 8, notes: 'Shoes off at the door. Vinyl copy, original pressing.' },
@@ -64,6 +65,7 @@
         { id: 14, hostId: 8, album: 'Heaven or Las Vegas', artist: 'Cocteau Twins', cocktail: 'Flaming Dr Pepper', softDrink: 'Cherry vanilla soda', slots: ['happy', 'early'], startsAt: night(b, 'happy'), city: 'Greaves', address: '3 Mock Avenue, Lancaster', capacity: 6, notes: 'Lights low, volume up.' },
         { id: 12, hostId: 3, album: 'Discovery', artist: 'Daft Punk', cocktail: 'French 75', softDrink: 'Elderflower fizz', slots: ['early', 'late'], startsAt: night(b, 'early'), city: 'Moorlands', address: '27 Placeholder Terrace, Lancaster', capacity: 2, notes: 'Small flat, so just the two spots.' },
         { id: 15, hostId: 9, album: 'Your Queen Is a Reptile', artist: 'Sons of Kemet', cocktail: 'Mezcal Espresso Martini', softDrink: 'Espresso tonic', slots: ['happy', 'early', 'late'], startsAt: night(a, 'happy'), city: 'Skerton', address: '15 Trial Close, Lancaster', capacity: 8, notes: 'Saxophone, tuba and two drummers. Expect to move.' },
+        { id: 16, hostId: 11, album: 'Dog Brainz', artist: 'Dog Brainz', cocktail: 'Lager & Lime', softDrink: 'Lime and soda', slots: ['early', 'late'], startsAt: night(b, 'early'), city: 'Marsh', address: '21 Pretend Row, Lancaster', capacity: 8, notes: 'No shaker required.' },
       ],
       // status: pending (asked) -> approved (host said yes, payment due) -> paid (confirmed); or declined
       rsvps: [
@@ -84,6 +86,8 @@
         { partyId: 14, userId: 5, slots: ['happy'], status: 'pending' },
         { partyId: 12, userId: 4, slots: ['early', 'late'], status: 'paid' },
         { partyId: 12, userId: 6, slots: ['early', 'late'], status: 'paid' },
+        { partyId: 16, userId: 10, slots: ['early'], status: 'paid' },
+        { partyId: 16, userId: 5, slots: ['late'], status: 'pending' },
       ],
     };
   }
