@@ -786,6 +786,20 @@
 
   // ---------- Shell ----------
 
+  // Visual themes: colours and fonts are defined per theme in style.css.
+  const THEMES = [['', 'After hours'], ['sleeve', 'Sleeve notes'], ['rave', 'Rave flyer'], ['bluenote', 'Blue note']];
+  const THEME_KEY = 'house-music-theme';
+  let theme = '';
+  try { theme = localStorage.getItem(THEME_KEY) || ''; } catch { /* default look */ }
+
+  function setTheme(id) {
+    theme = THEMES.some(([x]) => x === id) ? id : '';
+    if (theme) document.documentElement.dataset.theme = theme;
+    else delete document.documentElement.dataset.theme;
+    try { localStorage.setItem(THEME_KEY, theme); } catch { /* lasts for this visit only */ }
+  }
+  setTheme(theme);
+
   function renderShell() {
     const user = me();
     $('header').innerHTML = `
@@ -798,6 +812,7 @@
     $('demo').innerHTML = `
       <p><strong>Proof of concept.</strong> Everything stays in this browser. No emails are sent and nothing is shared with other visitors.</p>
       <label>Try as <select id="try-as"><option value="">Visitor (signed out)</option>${options}</select></label>
+      <label>Theme <select id="theme">${THEMES.map(([id, name]) => `<option value="${id}"${id === theme ? ' selected' : ''}>${name}</option>`).join('')}</select></label>
       <button data-action="reset">Reset demo</button>`;
   }
 
@@ -1032,6 +1047,7 @@
       book.querySelector('[data-total]').textContent = money(n * PRICE);
       return;
     }
+    if (event.target.id === 'theme') return setTheme(event.target.value);
     if (event.target.id !== 'try-as') return;
     state.me = Number(event.target.value) || null;
     save();

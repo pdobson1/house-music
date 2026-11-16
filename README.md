@@ -67,6 +67,8 @@ It is a demo, not the product:
 - Clicking a cocktail name shows how to make it, looked up by name from
   TheCocktailDB's public API, with measures converted to metric. Cocktails it
   doesn't know get a short message.
+- A Theme menu in the top bar switches fonts and colours (After hours, Sleeve
+  notes, Rave flyer, Blue note). The choice is remembered in the browser.
 - Nothing is private or secure. Don't enter real passwords or addresses.
 
 ## Put it online for free

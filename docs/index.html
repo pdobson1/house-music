@@ -7,8 +7,12 @@
   <meta name="description" content="Album listening parties in people's homes in Lancaster. Proof of concept.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Jost:wght@400;500&family=Libre+Baskerville:ital@0;1&display=swap">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Jost:wght@400;500&family=Libre+Baskerville:ital@0;1&family=Playfair+Display:wght@700&family=Inter:wght@400;500&family=Source+Serif+4:ital@0;1&family=Archivo+Black&family=Space+Mono:wght@400;700&family=Space+Grotesk:wght@400;500&family=Oswald:wght@500;600&display=swap">
   <link rel="stylesheet" href="style.css">
+  <script>
+    // Apply the saved theme before the page paints, so there is no flash of the default look.
+    try { var t = localStorage.getItem('house-music-theme'); if (t) document.documentElement.dataset.theme = t; } catch (e) {}
+  </script>
 </head>
 <body>
   <div class="demo-bar"><div id="demo"></div></div>
