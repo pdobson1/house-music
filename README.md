@@ -58,10 +58,15 @@ It is a demo, not the product:
 - Album covers are looked up by artist and album name from Apple's public
   iTunes Search API and loaded from Apple's servers. Albums it can't match
   keep the generated coloured sleeve.
-- Each party page shows a short blurb about the album from its English
-  Wikipedia article, when there is one that clearly matches.
+- Each party page shows what the critics said about the album, picked from
+  the reception and legacy sections of its English Wikipedia article, or the
+  article's opening lines when there is nothing quotable. Albums without a
+  clearly matching article get no blurb.
+- Hosts can add an album link, such as its Bandcamp page. Bandcamp has no
+  public API and blocks automated requests, so nothing is pulled from it.
 - Clicking a cocktail name shows how to make it, looked up by name from
-  TheCocktailDB's public API. Cocktails it doesn't know get a short message.
+  TheCocktailDB's public API, with measures converted to metric. Cocktails it
+  doesn't know get a short message.
 - Nothing is private or secure. Don't enter real passwords or addresses.
 
 ## Put it online for free

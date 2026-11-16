@@ -213,14 +213,16 @@
   }, true);
 
   // ---------- Album blurbs ----------
-  // The opening lines of the album's English Wikipedia article, shown on the
-  // party page. Only used when the article is clearly this album by this artist.
+  // From the album's English Wikipedia article, shown on the party page: what
+  // the critics said (picked from its reception and legacy sections) when the
+  // article has that, otherwise its opening lines. Only used when the article
+  // is clearly this album by this artist.
 
-  const BLURBS_KEY = 'house-music-blurbs-v1';
+  const BLURBS_KEY = 'house-music-blurbs-v2';
   let blurbs = {};
   try { blurbs = JSON.parse(localStorage.getItem(BLURBS_KEY)) || {}; } catch { /* no cache */ }
 
-  const blurbHtml = (b) => `<p>${esc(b.text)}</p>
+  const blurbHtml = (b) => `${b.critics ? '<p class="blurb-label">What the critics said</p>' : ''}<p>${esc(b.text)}</p>
     <p class="source">From <a href="${esc(b.url)}" target="_blank" rel="noopener">Wikipedia</a>, CC BY-SA.</p>`;
 
   function blurbBox(p) {
@@ -229,21 +231,73 @@
   }
 
   // Article titles look like "Timeless (Goldie album)"; the short description like "1995 studio album by Goldie".
-  function pickBlurb(pages, artist, album) {
+  function pickArticle(pages, artist, album) {
     const a = norm(artist), t = norm(album);
-    const hit = pages.sort((x, y) => x.index - y.index).find((pg) => {
+    return pages.sort((x, y) => x.index - y.index).find((pg) => {
       const about = norm(pg.description || '');
       return norm(pg.title.replace(/\s*\([^)]*\)$/, '')) === t && pg.extract
         && /\b(album|ep|mixtape|soundtrack)\b/.test(about) && ` ${about} `.includes(` ${a} `);
-    });
-    if (!hit) return '';
-    // Keep it to a short paragraph, ending on a full sentence where possible.
-    let text = hit.extract.replace(/\s+/g, ' ').trim();
+    }) || null;
+  }
+
+  // Splits prose into sentences without breaking on initials and common abbreviations.
+  function sentences(text) {
+    const out = [];
+    for (const piece of text.replace(/\s+/g, ' ').match(/[^.!?]+(?:[.!?]+["”’)\]]*|$)/g) || []) {
+      const prev = out[out.length - 1];
+      const joins = prev && (/(?:\b(?:Mr|Mrs|Ms|Dr|St|Jr|Sr|vs|No|Vol|Inc|Ltd|etc)|\b[A-Z]|\.\.)\.$/.test(prev.trim()) || /^\s*[a-z0-9,;)]/.test(piece));
+      if (joins) out[out.length - 1] = prev + piece; else out.push(piece);
+    }
+    return out.map((x) => x.trim()).filter(Boolean);
+  }
+
+  const PRAISE = /\b(acclaim\w*|prais\w+|hail\w+|masterpiece|classic|landmark|greatest|best|finest|influential|groundbreaking|ground-breaking|seminal|important|essential|brilliant|perfect|pioneering|defining|revolutionary|triumph|stunning|ranked|named)\b/i;
+  const FAINT = /\b(criticis\w+|criticiz\w+|mixed|negative|disappoint\w+|weak\w*|lukewarm|panned|worst|flawed)\b/i;
+
+  // Picks up to two sentences of praise from the article's reception and legacy sections.
+  function pickReception(article) {
+    const parts = article.split(/^(==+ .*? ==+)$/m); // [lead, heading, body, heading, body, ...]
+    let body = '';
+    for (let i = 1; i < parts.length; i += 2) {
+      if (/reception|legacy|acclaim|accolade|critical|review|influence/i.test(parts[i])) body += ` ${parts[i + 1]}`;
+    }
+    // Drop page references such as "(12/95, pp. 66–67)" that clutter review round-ups.
+    body = body.replace(/\s*\([^()]*\bpp?\.\s*\d[^()]*\)/g, '');
+    const scored = sentences(body).map((text, index) => {
+      let score = 0;
+      if (/"[^"]{12,}"|“[^”]{12,}”/.test(text)) score += 2; // carries a quote
+      if (PRAISE.test(text)) score += 2;
+      if (FAINT.test(text)) score -= 3;
+      if (text.length < 50 || text.length > 330) score -= 5;
+      return { text, index, score };
+    }).filter((x) => x.score >= 2);
+    const best = scored.sort((x, y) => y.score - x.score || x.index - y.index).slice(0, 2);
+    if (!best.length) return '';
+    if (best.length === 2 && best[0].text.length + best[1].text.length > 520) best.pop();
+    return best.sort((x, y) => x.index - y.index).map((x) => x.text).join(' ');
+  }
+
+  function introText(extract) {
+    let text = extract.replace(/\s+/g, ' ').trim();
     if (text.length > 420) {
       const cut = text.slice(0, 420);
       text = cut.includes('. ') ? cut.slice(0, cut.lastIndexOf('. ') + 1) : `${cut.slice(0, cut.lastIndexOf(' '))}…`;
     }
-    return { text, url: hit.fullurl };
+    return text;
+  }
+
+  const wikipedia = async (params) => {
+    const res = await fetch(`https://en.wikipedia.org/w/api.php?${new URLSearchParams({ action: 'query', format: 'json', origin: '*', ...params })}`);
+    if (!res.ok) throw new Error('wikipedia unavailable');
+    const data = await res.json();
+    return Object.values((data.query && data.query.pages) || {});
+  };
+
+  function showBlurb(key, blurb) {
+    const el = document.querySelector('.blurb[data-blurb]');
+    if (!blurb || !el || el.dataset.blurb !== key) return;
+    el.innerHTML = blurbHtml(blurb);
+    el.hidden = false;
   }
 
   async function loadBlurb() {
@@ -252,25 +306,47 @@
     const { blurb: key, artist, album } = el.dataset;
     if (key in blurbs || !norm(artist) || !norm(album) || lookups.has(`blurb:${key}`)) return;
     lookups.add(`blurb:${key}`);
+    const remember = (value) => {
+      blurbs[key] = value;
+      try { localStorage.setItem(BLURBS_KEY, JSON.stringify(blurbs)); } catch { /* fine */ }
+    };
     try {
-      const query = new URLSearchParams({
-        action: 'query', format: 'json', origin: '*',
+      // 1. Find the album's article and its opening lines.
+      const page = pickArticle(await wikipedia({
         generator: 'search', gsrsearch: `${album} ${artist} album`, gsrlimit: '5',
         prop: 'extracts|description|info', exintro: '1', explaintext: '1', exsentences: '3', exlimit: '5', inprop: 'url',
-      });
-      const res = await fetch(`https://en.wikipedia.org/w/api.php?${query}`);
-      if (!res.ok) return; // try again on a later visit
-      const data = await res.json();
-      blurbs[key] = pickBlurb(Object.values((data.query && data.query.pages) || {}), artist, album);
-      try { localStorage.setItem(BLURBS_KEY, JSON.stringify(blurbs)); } catch { /* fine */ }
-      const now = document.querySelector('.blurb[data-blurb]');
-      if (blurbs[key] && now && now.dataset.blurb === key) {
-        now.innerHTML = blurbHtml(blurbs[key]);
-        now.hidden = false;
-      }
-    } catch { /* offline or blocked: the page simply has no blurb */ } finally {
+      }), artist, album);
+      if (!page) return remember('');
+      const intro = { text: introText(page.extract), url: page.fullurl };
+      showBlurb(key, intro); // something to read while the reviews load
+      // 2. Read the whole article and look for what the critics said.
+      // If this step fails the opening lines stay up, and it is tried again on a later visit.
+      const [full] = await wikipedia({ prop: 'extracts', explaintext: '1', exsectionformat: 'wiki', pageids: String(page.pageid) });
+      const praise = full && full.extract ? pickReception(full.extract) : '';
+      remember(praise ? { text: praise, url: page.fullurl, critics: true } : intro);
+      showBlurb(key, blurbs[key]);
+    } catch { /* offline, blocked or rate-limited: try again on a later visit */ } finally {
       lookups.delete(`blurb:${key}`);
     }
+  }
+
+  // Tests can reach the text helpers; nothing in the page uses this.
+  window.houseMusicText = { sentences, pickReception, metric: (m) => metric(m) };
+
+  // A host can add a link to the album, e.g. its Bandcamp page. Only https links are shown.
+  function albumLink(link) {
+    try {
+      const url = new URL(link);
+      return url.protocol === 'https:' ? url : null;
+    } catch { return null; }
+  }
+
+  function albumLinkHtml(p) {
+    const url = p.link && albumLink(p.link);
+    if (!url) return '';
+    const host = url.hostname.replace(/^www\./, '');
+    const label = /(^|\.)bandcamp\.com$/.test(host) ? 'Listen on Bandcamp' : `Hear it at ${host}`;
+    return `<p class="album-link"><a href="${esc(url.href)}" target="_blank" rel="noopener">${esc(label)}</a></p>`;
   }
 
   // ---------- Cocktail recipes ----------
@@ -300,11 +376,56 @@
     return found;
   }
 
+  // Recipe measures arrive in US units ("1 1/2 oz", "2 tsp", "1 cup"); show them in metric.
+  const UNITS = [
+    [/^(?:fl\.?\s*)?(?:oz|ounces?)\b\.?/i, 30, 'ml'],
+    [/^(?:shots?|jiggers?)\b/i, 45, 'ml'],
+    [/^(?:tsp|teaspoons?)\b\.?/i, 5, 'ml'],
+    [/^(?:tbsp|tblsp|tablespoons?)\b\.?/i, 15, 'ml'],
+    [/^cups?\b/i, 240, 'ml'],
+    [/^(?:pints?|pt)\b\.?/i, 475, 'ml'],
+    [/^(?:quarts?|qt)\b\.?/i, 950, 'ml'],
+    [/^(?:gallons?|gal)\b\.?/i, 3800, 'ml'],
+    [/^(?:lbs?|pounds?)\b\.?/i, 450, 'g'],
+    [/^cl\b/i, 10, 'ml'],
+    [/^dl\b/i, 100, 'ml'],
+  ];
+  const NUMBER = '(\\d+\\s+\\d+\\s*/\\s*\\d+|\\d+\\s*/\\s*\\d+|\\d+(?:\\.\\d+)?)';
+  const MEASURE = new RegExp(`^\\s*${NUMBER}(?:\\s*(?:-|–|to)\\s*${NUMBER})?\\s*(.*)$`, 'i');
+
+  function toNumber(text) {
+    const mixed = /^(\d+)\s+(\d+)\s*\/\s*(\d+)$/.exec(text);
+    if (mixed) return Number(mixed[1]) + Number(mixed[2]) / Number(mixed[3]);
+    const fraction = /^(\d+)\s*\/\s*(\d+)$/.exec(text);
+    return fraction ? Number(fraction[1]) / Number(fraction[2]) : Number(text);
+  }
+
+  // Round to amounts you can actually measure: 2.5 ml steps when small, 5 ml steps otherwise.
+  function amount(value, unit) {
+    const step = value < 15 ? 2.5 : value < 1000 ? 5 : 50;
+    const rounded = Math.max(step, Math.round(value / step) * step);
+    if (unit === 'ml' && rounded >= 1000) return `${Number((rounded / 1000).toFixed(2))} l`;
+    if (unit === 'g' && rounded >= 1000) return `${Number((rounded / 1000).toFixed(2))} kg`;
+    return `${rounded} ${unit}`;
+  }
+
+  function metric(measure) {
+    const m = MEASURE.exec(measure || '');
+    if (!m) return (measure || '').trim();
+    const unit = UNITS.find(([re]) => re.test(m[3]));
+    if (!unit || !Number.isFinite(toNumber(m[1]))) return measure.trim(); // dashes, parts and the like stay as written
+    const [re, factor, name] = unit;
+    const rest = m[3].replace(re, '').trim();
+    const low = amount(toNumber(m[1]) * factor, name);
+    const text = m[2] ? `${low.replace(/ \w+$/, '')}–${amount(toNumber(m[2]) * factor, name)}` : low;
+    return `${text}${rest ? ` ${rest}` : ''}`;
+  }
+
   function recipeHtml(d) {
     const rows = [];
     for (let i = 1; i <= 15; i++) {
       const ingredient = (d[`strIngredient${i}`] || '').trim();
-      if (ingredient) rows.push(`<li>${esc(`${(d[`strMeasure${i}`] || '').trim()} ${ingredient}`.trim())}</li>`);
+      if (ingredient) rows.push(`<li>${esc(`${metric(d[`strMeasure${i}`])} ${ingredient}`.trim())}</li>`);
     }
     return `
       ${d.strDrinkThumb ? `<img src="${esc(d.strDrinkThumb)}/medium" alt="">` : ''}
@@ -313,7 +434,7 @@
       <ul>${rows.join('')}</ul>
       <h3>Method</h3>
       <p>${esc(d.strInstructions || 'No method given.')}</p>
-      <p class="source">Recipe from TheCocktailDB.</p>`;
+      <p class="source">Recipe from TheCocktailDB. Measures converted to metric and rounded.</p>`;
   }
 
   async function showRecipe(name) {
@@ -492,6 +613,9 @@
           <label>Address <input name="address" value="${esc(v.address)}" maxlength="200" required>
             <small>Only shown to guests who are approved and paid. This is a demo: use a made-up address.</small></label>
         </div>
+        <label><span>Album link <span class="opt">(optional)</span></span>
+          <input type="url" name="link" value="${esc(v.link)}" maxlength="300" placeholder="https://artist.bandcamp.com/album/...">
+          <small>Bandcamp, or anywhere guests can hear it or read about it.</small></label>
         <label><span>Anything guests should know <span class="opt">(optional)</span></span>
           <textarea name="notes" rows="3" maxlength="1000">${esc(v.notes)}</textarea></label>
         <button class="btn">Publish party</button>
@@ -595,6 +719,7 @@
           <h1>${esc(p.album)}</h1>
           <p class="artist">${esc(p.artist)} · on repeat all night</p>
           ${blurbBox(p)}
+          ${albumLinkHtml(p)}
           <dl>
             <dt>Cocktail</dt><dd>🍸 ${cocktailButton(p.cocktail)}</dd>
             <dt>Alcohol-free</dt><dd>🍹 ${esc(p.softDrink)}</dd>
@@ -750,6 +875,7 @@
         capacity: Number.parseInt(data.get('capacity'), 10),
         slots: SLOTS.map((x) => x.id).filter((id) => data.getAll('slots').includes(id)),
         notes: clean(data.get('notes'), 1000),
+        link: clean(data.get('link'), 300),
       };
       let error = null;
       if (!v.album || !v.artist) error = 'Which album are you playing, and who is it by?';
@@ -761,6 +887,7 @@
       else if (!v.address) error = 'Add your address. Only guests you approve will see it.';
       else if (!(v.capacity >= 1 && v.capacity <= 200)) error = 'Guests per slot must be between 1 and 200.';
       else if (!v.slots.length) error = 'Pick at least one slot to open your door for.';
+      else if (v.link && !albumLink(v.link)) error = 'The album link should be a full web address starting with https://';
       if (error) return render(hostPage(error, v));
       const { date, ...rest } = v;
       const party = { id: state.nextId++, hostId: user.id, ...rest, startsAt: `${date}T${slotById(v.slots[0]).time}` };
